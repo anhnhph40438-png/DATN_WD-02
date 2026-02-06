@@ -1,16 +1,35 @@
 {
-  "name": "backend",
-  "version": "0.0.0",
-  "private": true,
+  "name": "barberly-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Barberly - Hair Salon Booking Application",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node ./bin/www"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "seed": "node src/scripts/seed.js",
+    "seed:clear": "node src/scripts/seed.js --clear"
   },
+  "keywords": [
+    "barbershop",
+    "booking",
+    "salon",
+    "nodejs",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "cookie-parser": "~1.4.4",
-    "debug": "~2.6.9",
-    "express": "~4.16.1",
-    "http-errors": "~1.6.3",
-    "jade": "~1.11.0",
-    "morgan": "~1.9.1"
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-validator": "^7.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "resend": "^2.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
 }
