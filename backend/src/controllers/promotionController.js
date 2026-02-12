@@ -71,6 +71,55 @@ const createPromotion = async (req, res, next) => {
 };
 
 
+const getPromotions = async (req, res, next) => {
+  try {
+    const { isActive, page = 1, limit = 10, search } = req.query;
+
+    const query = {};
+
+    if (isActive !== undefined) {
+      query.isActive = isActive === 'true';
+    }
+
+    if (search) {
+      query.$or = [
+        { code: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const promotions = await Promotion.find(query)
+      .populate('applicableServices', 'name price')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    const total = await Promotion.countDocuments(query);
+
+    sendResponse(
+      res,
+      200,
+      {
+        promotions,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum)
+        }
+      },
+      'Promotions retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 module.exports = {
   createPromotion
 };
