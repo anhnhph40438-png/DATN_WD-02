@@ -278,3 +278,39 @@ const getAppointmentById = async (req, res, next) => {
     next(error);
   }
 };
+
+const confirmAppointment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const appointment = await Appointment.findById(id);
+    if (!appointment) {
+      return next(new AppError('Appointment not found', 404));
+    }
+
+    const barber = await Barber.findOne({ user: req.user._id });
+    if (!barber || appointment.barber.toString() !== barber._id.toString()) {
+      return next(new AppError('You do not have permission to confirm this appointment', 403));
+    }
+
+    if (appointment.status !== 'pending') {
+      return next(
+        new AppError(`Cannot confirm appointment with status '${appointment.status}'`, 400)
+      );
+    }
+
+    appointment.status = 'confirmed';
+    await appointment.save();
+
+    await appointment.populate([
+      { path: 'customer', select: 'name email phone avatar' },
+      { path: 'barber', populate: { path: 'user', select: 'name email phone avatar' } },
+      { path: 'shop', select: 'name address phone' },
+      { path: 'services', select: 'name price duration' }
+    ]);
+
+    sendResponse(res, 200, { appointment }, 'Appointment confirmed successfully');
+  } catch (error) {
+    next(error);
+  }
+};
