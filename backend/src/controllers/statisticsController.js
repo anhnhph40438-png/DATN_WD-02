@@ -534,3 +534,158 @@ const getBarberStats = async (req, res, next) => {
     next(error);
   }
 };
+
+const getBarberPersonalStats = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { period = 'month', startDate, endDate } = req.query;
+
+    let barber;
+
+    if (id) {
+      barber = await Barber.findById(id).populate('user', 'name email phone avatar');
+
+      if (!barber) {
+        return next(new AppError('Barber not found', 404));
+      }
+
+      if (req.user.role === 'barber') {
+        const userBarber = await Barber.findOne({ user: req.user._id });
+        if (!userBarber || userBarber._id.toString() !== id) {
+          return next(new AppError('You can only view your own statistics', 403));
+        }
+      }
+    } else {
+      barber = await Barber.findOne({ user: req.user._id }).populate(
+        'user',
+        'name email phone avatar'
+      );
+
+      if (!barber) {
+        return next(new AppError('Barber profile not found', 404));
+      }
+    }
+
+    const { start, end } = getDateRange(period, startDate, endDate);
+    const now = new Date();
+
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const [
+      totalAppointments,
+      appointmentsByStatus,
+      periodRevenue,
+      todayAppointments,
+      upcomingAppointments,
+      recentReviews
+    ] = await Promise.all([
+      Appointment.countDocuments({
+        barber: barber._id,
+        date: { $gte: start, $lte: end }
+      }),
+
+      Appointment.aggregate([
+        {
+          $match: {
+            barber: barber._id,
+            date: { $gte: start, $lte: end }
+          }
+        },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+
+      Appointment.aggregate([
+        {
+          $match: {
+            barber: barber._id,
+            date: { $gte: start, $lte: end },
+            status: 'completed',
+            paymentStatus: 'paid'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$totalPrice' }
+          }
+        }
+      ]),
+
+      Appointment.find({
+        barber: barber._id,
+        date: { $gte: todayStart, $lte: todayEnd }
+      })
+        .populate('customer', 'name email phone avatar')
+        .populate('services', 'name price duration')
+        .sort({ startTime: 1 }),
+
+      Appointment.find({
+        barber: barber._id,
+        date: { $gte: todayStart },
+        status: { $in: ['pending', 'confirmed'] }
+      })
+        .populate('customer', 'name email phone avatar')
+        .populate('services', 'name price duration')
+        .sort({ date: 1, startTime: 1 })
+        .limit(10),
+
+      Review.find({ barber: barber._id })
+        .populate('customer', 'name avatar')
+        .sort({ createdAt: -1 })
+        .limit(5)
+    ]);
+
+    const byStatus = {
+      pending: 0,
+      confirmed: 0,
+      'in-progress': 0,
+      completed: 0,
+      cancelled: 0
+    };
+
+    appointmentsByStatus.forEach((item) => {
+      byStatus[item._id] = item.count;
+    });
+
+    const revenue = periodRevenue.length > 0 ? periodRevenue[0].total : 0;
+
+    sendResponse(
+      res,
+      200,
+      {
+        barber: {
+          _id: barber._id,
+          user: barber.user,
+          rating: barber.rating,
+          totalReviews: barber.totalReviews
+        },
+        statistics: {
+          totalAppointments,
+          byStatus,
+          revenue,
+          completionRate:
+            totalAppointments > 0
+              ? Math.round((byStatus.completed / totalAppointments) * 100)
+              : 0
+        },
+        todayAppointments,
+        upcomingAppointments,
+        recentReviews,
+        period,
+        startDate: start,
+        endDate: end
+      },
+      'Barber personal statistics retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
