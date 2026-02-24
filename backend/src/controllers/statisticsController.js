@@ -228,3 +228,91 @@ const getRevenueStats = async (req, res, next) => {
     next(error);
   }
 };
+
+const getAppointmentStats = async (req, res, next) => {
+  try {
+    const { period = 'month', startDate, endDate } = req.query;
+
+    const { start, end } = getDateRange(period, startDate, endDate);
+
+    const byStatusResult = await Appointment.aggregate([
+      {
+        $match: {
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const byStatus = {
+      pending: 0,
+      confirmed: 0,
+      'in-progress': 0,
+      completed: 0,
+      cancelled: 0
+    };
+
+    byStatusResult.forEach((item) => {
+      byStatus[item._id] = item.count;
+    });
+
+    let groupFormat;
+    switch (period) {
+      case 'day':
+      case 'week':
+      case 'month':
+        groupFormat = { $dateToString: { format: '%Y-%m-%d', date: '$date' } };
+        break;
+      case 'year':
+        groupFormat = { $dateToString: { format: '%Y-%m', date: '$date' } };
+        break;
+      default:
+        groupFormat = { $dateToString: { format: '%Y-%m-%d', date: '$date' } };
+    }
+
+    const byPeriodResult = await Appointment.aggregate([
+      {
+        $match: {
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: groupFormat,
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    const byPeriod = byPeriodResult.map((item) => ({
+      date: item._id,
+      count: item.count
+    }));
+
+    const total = Object.values(byStatus).reduce((sum, count) => sum + count, 0);
+
+    sendResponse(
+      res,
+      200,
+      {
+        byStatus,
+        byPeriod,
+        total,
+        period,
+        startDate: start,
+        endDate: end
+      },
+      'Appointment statistics retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
