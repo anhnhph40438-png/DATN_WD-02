@@ -467,3 +467,94 @@ const cancelAppointment = async (req, res, next) => {
   }
 };
 
+const rescheduleAppointment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { date, startTime } = req.body;
+
+    const appointment = await Appointment.findById(id);
+    if (!appointment) {
+      return next(new AppError('Appointment not found', 404));
+    }
+
+    if (appointment.customer.toString() !== req.user._id.toString()) {
+      return next(new AppError('You do not have permission to reschedule this appointment', 403));
+    }
+
+    if (!['pending', 'confirmed'].includes(appointment.status)) {
+      return next(
+        new AppError(`Cannot reschedule appointment with status '${appointment.status}'`, 400)
+      );
+    }
+
+    const barber = await Barber.findById(appointment.barber);
+    if (!barber || !barber.isAvailable) {
+      return next(new AppError('Barber is not available', 400));
+    }
+
+    const newEndTime = addMinutesToTime(startTime, appointment.totalDuration);
+
+    const newDate = new Date(date);
+    const dayName = getDayName(newDate);
+    const workingDay = barber.workingHours[dayName];
+
+    if (workingDay.isOff) {
+      return next(new AppError(`Barber is not working on ${dayName}`, 400));
+    }
+
+    const workStart = timeToMinutes(workingDay.start);
+    const workEnd = timeToMinutes(workingDay.end);
+    const appointmentStart = timeToMinutes(startTime);
+    const appointmentEnd = timeToMinutes(newEndTime);
+
+    if (appointmentStart < workStart || appointmentEnd > workEnd) {
+      return next(
+        new AppError(
+          `Appointment must be within barber's working hours (${workingDay.start} - ${workingDay.end})`,
+          400
+        )
+      );
+    }
+
+    const startOfDay = new Date(newDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(newDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingAppointments = await Appointment.find({
+      _id: { $ne: id },
+      barber: appointment.barber,
+      date: { $gte: startOfDay, $lte: endOfDay },
+      status: { $nin: ['cancelled'] }
+    });
+
+    for (const existing of existingAppointments) {
+      if (isOverlapping(startTime, newEndTime, existing.startTime, existing.endTime)) {
+        return next(
+          new AppError(
+            `Time slot conflicts with an existing appointment (${existing.startTime} - ${existing.endTime})`,
+            400
+          )
+        );
+      }
+    }
+
+    appointment.date = newDate;
+    appointment.startTime = startTime;
+    appointment.endTime = newEndTime;
+    appointment.status = 'pending';
+    await appointment.save();
+
+    await appointment.populate([
+      { path: 'customer', select: 'name email phone avatar' },
+      { path: 'barber', populate: { path: 'user', select: 'name email phone avatar' } },
+      { path: 'shop', select: 'name address phone' },
+      { path: 'services', select: 'name price duration' }
+    ]);
+
+    sendResponse(res, 200, { appointment }, 'Appointment rescheduled successfully');
+  } catch (error) {
+    next(error);
+  }
+};
