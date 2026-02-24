@@ -97,3 +97,70 @@ const generateDateLabels = (period, start, end) => {
 
   return labels;
 };
+
+const getDashboardStats = async (req, res, next) => {
+  try {
+    const now = new Date();
+
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const [
+      totalCustomers,
+      totalBarbers,
+      totalAppointments,
+      totalRevenueResult,
+      todayAppointments,
+      pendingAppointments,
+      recentAppointments
+    ] = await Promise.all([
+      User.countDocuments({ role: 'customer', isActive: true }),
+
+      Barber.countDocuments({ isAvailable: true }),
+
+      Appointment.countDocuments(),
+
+      Transaction.aggregate([
+        { $match: { status: 'success' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+
+      Appointment.countDocuments({
+        date: { $gte: todayStart, $lte: todayEnd }
+      }),
+
+      Appointment.countDocuments({ status: 'pending' }),
+
+      Appointment.find()
+        .populate('customer', 'name email phone avatar')
+        .populate({
+          path: 'barber',
+          populate: { path: 'user', select: 'name avatar' }
+        })
+        .populate('services', 'name price')
+        .sort({ createdAt: -1 })
+        .limit(5)
+    ]);
+
+    const totalRevenue = totalRevenueResult.length > 0 ? totalRevenueResult[0].total : 0;
+
+    sendResponse(
+      res,
+      200,
+      {
+        totalCustomers,
+        totalBarbers,
+        totalAppointments,
+        totalRevenue,
+        todayAppointments,
+        pendingAppointments,
+        recentAppointments
+      },
+      'Dashboard statistics retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
