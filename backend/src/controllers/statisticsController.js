@@ -689,3 +689,12 @@ const getBarberPersonalStats = async (req, res, next) => {
     next(error);
   }
 };
+
+module.exports = {
+  getDashboardStats,
+  getRevenueStats,
+  getAppointmentStats,
+  getCustomerStats,
+  getBarberStats,
+  getBarberPersonalStats
+};
