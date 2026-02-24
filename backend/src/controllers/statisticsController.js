@@ -409,3 +409,128 @@ const getCustomerStats = async (req, res, next) => {
     next(error);
   }
 };
+
+const getBarberStats = async (req, res, next) => {
+  try {
+    const { period = 'month', startDate, endDate } = req.query;
+
+    const { start, end } = getDateRange(period, startDate, endDate);
+
+    const barberStats = await Barber.aggregate([
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      {
+        $unwind: '$userInfo'
+      },
+      {
+        $lookup: {
+          from: 'appointments',
+          let: { barberId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$barber', '$$barberId'] },
+                    { $gte: ['$date', start] },
+                    { $lte: ['$date', end] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'appointments'
+        }
+      },
+      {
+        $lookup: {
+          from: 'reviews',
+          localField: '_id',
+          foreignField: 'barber',
+          as: 'reviews'
+        }
+      },
+      {
+        $addFields: {
+          appointmentCount: { $size: '$appointments' },
+          completedCount: {
+            $size: {
+              $filter: {
+                input: '$appointments',
+                as: 'apt',
+                cond: { $eq: ['$$apt.status', 'completed'] }
+              }
+            }
+          },
+          revenue: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: '$appointments',
+                    as: 'apt',
+                    cond: {
+                      $and: [
+                        { $eq: ['$$apt.status', 'completed'] },
+                        { $eq: ['$$apt.paymentStatus', 'paid'] }
+                      ]
+                    }
+                  }
+                },
+                as: 'paidApt',
+                in: '$$paidApt.totalPrice'
+              }
+            }
+          },
+          averageRating: '$rating',
+          reviewCount: '$totalReviews'
+        }
+      },
+      {
+        $project: {
+          barber: {
+            _id: '$_id',
+            user: {
+              _id: '$userInfo._id',
+              name: '$userInfo.name',
+              email: '$userInfo.email',
+              phone: '$userInfo.phone',
+              avatar: '$userInfo.avatar'
+            },
+            rating: '$rating',
+            totalReviews: '$totalReviews',
+            isAvailable: '$isAvailable'
+          },
+          appointmentCount: 1,
+          completedCount: 1,
+          revenue: 1,
+          averageRating: 1,
+          reviewCount: 1
+        }
+      },
+      {
+        $sort: { completedCount: -1, revenue: -1 }
+      }
+    ]);
+
+    sendResponse(
+      res,
+      200,
+      {
+        barbers: barberStats,
+        period,
+        startDate: start,
+        endDate: end
+      },
+      'Barber statistics retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
