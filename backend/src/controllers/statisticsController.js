@@ -316,3 +316,96 @@ const getAppointmentStats = async (req, res, next) => {
     next(error);
   }
 };
+
+const getCustomerStats = async (req, res, next) => {
+  try {
+    const now = new Date();
+
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const [
+      totalCustomers,
+      newCustomersThisWeek,
+      newCustomersThisMonth,
+      topCustomersResult
+    ] = await Promise.all([
+      User.countDocuments({ role: 'customer', isActive: true }),
+
+      User.countDocuments({
+        role: 'customer',
+        createdAt: { $gte: weekStart }
+      }),
+
+      User.countDocuments({
+        role: 'customer',
+        createdAt: { $gte: monthStart }
+      }),
+
+      Appointment.aggregate([
+        {
+          $match: {
+            status: 'completed'
+          }
+        },
+        {
+          $group: {
+            _id: '$customer',
+            appointmentCount: { $sum: 1 },
+            totalSpent: { $sum: '$totalPrice' }
+          }
+        },
+        {
+          $sort: { appointmentCount: -1, totalSpent: -1 }
+        },
+        {
+          $limit: 10
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'user'
+          }
+        },
+        {
+          $unwind: '$user'
+        },
+        {
+          $project: {
+            user: {
+              _id: '$user._id',
+              name: '$user.name',
+              email: '$user.email',
+              phone: '$user.phone',
+              avatar: '$user.avatar'
+            },
+            appointmentCount: 1,
+            totalSpent: 1
+          }
+        }
+      ])
+    ]);
+
+    sendResponse(
+      res,
+      200,
+      {
+        totalCustomers,
+        newCustomers: {
+          thisWeek: newCustomersThisWeek,
+          thisMonth: newCustomersThisMonth
+        },
+        topCustomers: topCustomersResult
+      },
+      'Customer statistics retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
