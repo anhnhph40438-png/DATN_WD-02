@@ -424,3 +424,46 @@ const completeAppointment = async (req, res, next) => {
     next(error);
   }
 };
+
+const cancelAppointment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const appointment = await Appointment.findById(id);
+    if (!appointment) {
+      return next(new AppError('Appointment not found', 404));
+    }
+
+    const userRole = req.user.role;
+    const userId = req.user._id;
+
+    if (userRole === 'customer') {
+      if (appointment.customer.toString() !== userId.toString()) {
+        return next(new AppError('You do not have permission to cancel this appointment', 403));
+      }
+    }
+
+    if (!['pending', 'confirmed'].includes(appointment.status)) {
+      return next(
+        new AppError(`Cannot cancel appointment with status '${appointment.status}'`, 400)
+      );
+    }
+
+    appointment.status = 'cancelled';
+    appointment.cancelReason = reason || 'Cancelled by customer';
+    await appointment.save();
+
+    await appointment.populate([
+      { path: 'customer', select: 'name email phone avatar' },
+      { path: 'barber', populate: { path: 'user', select: 'name email phone avatar' } },
+      { path: 'shop', select: 'name address phone' },
+      { path: 'services', select: 'name price duration' }
+    ]);
+
+    sendResponse(res, 200, { appointment }, 'Appointment cancelled successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
