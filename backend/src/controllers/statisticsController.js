@@ -164,3 +164,67 @@ const getDashboardStats = async (req, res, next) => {
     next(error);
   }
 };
+
+const getRevenueStats = async (req, res, next) => {
+  try {
+    const { period = 'month', startDate, endDate } = req.query;
+
+    const { start, end } = getDateRange(period, startDate, endDate);
+
+    let groupFormat;
+    switch (period) {
+      case 'day':
+      case 'week':
+      case 'month':
+        groupFormat = { $dateToString: { format: '%Y-%m-%d', date: '$paidAt' } };
+        break;
+      case 'year':
+        groupFormat = { $dateToString: { format: '%Y-%m', date: '$paidAt' } };
+        break;
+      default:
+        groupFormat = { $dateToString: { format: '%Y-%m-%d', date: '$paidAt' } };
+    }
+
+    const revenueData = await Transaction.aggregate([
+      {
+        $match: {
+          status: 'success',
+          paidAt: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: groupFormat,
+          revenue: { $sum: '$amount' },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    const total = revenueData.reduce((sum, item) => sum + item.revenue, 0);
+
+    const labels = revenueData.map((item) => item._id);
+    const data = revenueData.map((item) => item.revenue);
+    const transactionCounts = revenueData.map((item) => item.count);
+
+    sendResponse(
+      res,
+      200,
+      {
+        labels,
+        data,
+        transactionCounts,
+        total,
+        period,
+        startDate: start,
+        endDate: end
+      },
+      'Revenue statistics retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
