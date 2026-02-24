@@ -558,3 +558,15 @@ const rescheduleAppointment = async (req, res, next) => {
     next(error);
   }
 };
+
+module.exports = {
+  createAppointment,
+  getAppointments,
+  getAppointmentById,
+  confirmAppointment,
+  rejectAppointment,
+  startAppointment,
+  completeAppointment,
+  cancelAppointment,
+  rescheduleAppointment
+};
