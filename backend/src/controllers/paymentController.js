@@ -358,3 +358,28 @@ const getTransactions = async (req, res, next) => {
     next(error);
   }
 };
+
+const getTransactionById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const transaction = await Transaction.findById(id)
+      .populate('customer', 'name email phone avatar')
+      .populate({
+        path: 'appointment',
+        populate: [
+          { path: 'barber', populate: { path: 'user', select: 'name email phone' } },
+          { path: 'shop', select: 'name address phone' },
+          { path: 'services', select: 'name price duration' }
+        ]
+      });
+
+    if (!transaction) {
+      return next(new AppError('Transaction not found', 404));
+    }
+
+    sendResponse(res, 200, { transaction }, 'Transaction retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
