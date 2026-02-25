@@ -345,6 +345,26 @@ const getAvailableSlots = async (req, res, next) => {
   }
 };
 
+const generateTimeSlots = (start, end, intervalMinutes) => {
+  const slots = [];
+  const [startHour, startMinute] = start.split(':').map(Number);
+  const [endHour, endMinute] = end.split(':').map(Number);
+
+  let currentMinutes = startHour * 60 + startMinute;
+  const endMinutes = endHour * 60 + endMinute;
+
+  while (currentMinutes < endMinutes) {
+    const hours = Math.floor(currentMinutes / 60);
+    const minutes = currentMinutes % 60;
+    slots.push(
+      `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+    );
+    currentMinutes += intervalMinutes;
+  }
+
+  return slots;
+};
+
 module.exports = {
   getAvailableBarbers
 };
