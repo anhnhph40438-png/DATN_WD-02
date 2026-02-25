@@ -244,3 +244,56 @@ const vnpayReturn = async (req, res, next) => {
     return res.redirect(`${CLIENT_URL}/payment/result?success=false&message=Payment processing error`);
   }
 };
+
+const vnpayIpn = async (req, res) => {
+  try {
+    const verification = verifyIpn(req.query);
+
+    if (!verification.isValid) {
+      return res.status(200).json({ RspCode: '97', Message: 'Invalid signature' });
+    }
+
+    const transaction = await Transaction.findOne({
+      vnpTxnRef: verification.txnRef
+    });
+
+    if (!transaction) {
+      return res.status(200).json({ RspCode: '01', Message: 'Transaction not found' });
+    }
+
+    if (transaction.status !== 'pending') {
+      return res.status(200).json({ RspCode: '02', Message: 'Transaction already processed' });
+    }
+
+    if (transaction.amount !== verification.amount) {
+      return res.status(200).json({ RspCode: '04', Message: 'Invalid amount' });
+    }
+
+    transaction.vnpTransactionNo = verification.transactionNo;
+    transaction.vnpResponseCode = verification.responseCode;
+    transaction.vnpBankCode = verification.bankCode;
+
+    if (verification.responseCode === '00') {
+      transaction.status = 'success';
+      transaction.paidAt = new Date();
+      await transaction.save();
+
+      const appointment = await Appointment.findById(transaction.appointment);
+      if (appointment) {
+        appointment.paymentStatus = 'paid';
+        appointment.paymentMethod = 'vnpay';
+        await appointment.save();
+
+        await sendInvoiceEmail(transaction, appointment);
+      }
+    } else {
+      transaction.status = 'failed';
+      await transaction.save();
+    }
+
+    return res.status(200).json({ RspCode: '00', Message: 'Confirm Success' });
+  } catch (error) {
+    console.error('VNPay IPN error:', error);
+    return res.status(200).json({ RspCode: '99', Message: 'Unknown error' });
+  }
+};
