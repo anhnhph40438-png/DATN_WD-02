@@ -70,6 +70,55 @@ const getBarberById = async (req, res, next) => {
   }
 };
 
+const createBarber = async (req, res, next) => {
+  try {
+    const { name, email, phone, password, bio, skills } = req.body;
+
+    const existingUser = await User.findOne({
+      $or: [{ email }, { phone }]
+    });
+
+    if (existingUser) {
+      return next(
+        new AppError(
+          existingUser.email === email
+            ? 'Email already registered'
+            : 'Phone number already registered',
+          400
+        )
+      );
+    }
+
+    const shop = await getDefaultShop();
+
+    const user = await User.create({
+      name,
+      email,
+      phone,
+      password,
+      role: 'barber'
+    });
+
+    const barber = await Barber.create({
+      user: user._id,
+      shop: shop._id,
+      bio,
+      skills: skills || []
+    });
+
+    await barber.populate('user', 'name email phone avatar');
+
+    sendResponse(
+      res,
+      201,
+      { barber },
+      'Barber created successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAvailableBarbers
 };
