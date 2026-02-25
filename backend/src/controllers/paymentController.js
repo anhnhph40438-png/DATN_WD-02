@@ -189,61 +189,6 @@ const createPayment = async (req, res, next) => {
   }
 };
 
-const vnpayReturn = async (req, res, next) => {
-  try {
-    const verification = verifyReturnUrl(req.query);
-
-    const transaction = await Transaction.findOne({
-      vnpTxnRef: verification.txnRef
-    });
-
-    if (!transaction) {
-      return res.redirect(`${CLIENT_URL}/payment/result?success=false&message=Transaction not found`);
-    }
-
-    if (verification.isValid) {
-      transaction.vnpTransactionNo = verification.transactionNo;
-      transaction.vnpResponseCode = verification.responseCode;
-      transaction.vnpBankCode = verification.bankCode;
-
-      if (verification.responseCode === '00') {
-        transaction.status = 'success';
-        transaction.paidAt = new Date();
-        await transaction.save();
-
-        const appointment = await Appointment.findById(transaction.appointment);
-        if (appointment) {
-          appointment.paymentStatus = 'paid';
-          appointment.paymentMethod = 'vnpay';
-          await appointment.save();
-
-          await sendInvoiceEmail(transaction, appointment);
-        }
-
-        return res.redirect(
-          `${CLIENT_URL}/payment/result?success=true&txnRef=${verification.txnRef}&amount=${verification.amount}`
-        );
-      } else {
-        transaction.status = 'failed';
-        await transaction.save();
-
-        const message = encodeURIComponent(getResponseMessage(verification.responseCode));
-        return res.redirect(
-          `${CLIENT_URL}/payment/result?success=false&message=${message}&code=${verification.responseCode}`
-        );
-      }
-    } else {
-      transaction.status = 'failed';
-      transaction.vnpResponseCode = 'INVALID_SIGNATURE';
-      await transaction.save();
-
-      return res.redirect(`${CLIENT_URL}/payment/result?success=false&message=Invalid signature`);
-    }
-  } catch (error) {
-    console.error('VNPay return error:', error);
-    return res.redirect(`${CLIENT_URL}/payment/result?success=false&message=Payment processing error`);
-  }
-};
 
 const vnpayIpn = async (req, res) => {
   try {
@@ -561,4 +506,14 @@ const processRefund = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+module.exports = {
+  createPayment,
+  vnpayReturn,
+  vnpayIpn,
+  getTransactions,
+  getTransactionById,
+  getMyTransactions,
+  processRefund
 };
