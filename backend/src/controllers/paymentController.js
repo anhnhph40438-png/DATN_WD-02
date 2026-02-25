@@ -383,3 +383,52 @@ const getTransactionById = async (req, res, next) => {
     next(error);
   }
 };
+
+const getMyTransactions = async (req, res, next) => {
+  try {
+    const customerId = req.user._id;
+    const { status, page = 1, limit = 10 } = req.query;
+
+    const query = { customer: customerId };
+
+    if (status) {
+      query.status = status;
+    }
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const transactions = await Transaction.find(query)
+      .populate({
+        path: 'appointment',
+        select: 'date startTime endTime totalPrice status',
+        populate: [
+          { path: 'barber', populate: { path: 'user', select: 'name' } },
+          { path: 'services', select: 'name price' }
+        ]
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    const total = await Transaction.countDocuments(query);
+
+    sendResponse(
+      res,
+      200,
+      {
+        transactions,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum)
+        }
+      },
+      'Transactions retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
