@@ -366,5 +366,13 @@ const generateTimeSlots = (start, end, intervalMinutes) => {
 };
 
 module.exports = {
-  getAvailableBarbers
+  getAvailableBarbers,
+  getAllBarbers,
+  getBarberById,
+  createBarber,
+  updateBarber,
+  updateWorkingHours,
+  toggleBarberStatus,
+  deleteBarber,
+  getAvailableSlots
 };
