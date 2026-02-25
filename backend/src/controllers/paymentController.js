@@ -432,3 +432,133 @@ const getMyTransactions = async (req, res, next) => {
     next(error);
   }
 };
+
+const processRefund = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { amount, reason } = req.body;
+
+    const transaction = await Transaction.findById(id);
+
+    if (!transaction) {
+      return next(new AppError('Transaction not found', 404));
+    }
+
+    if (transaction.status !== 'success') {
+      return next(new AppError('Can only refund successful transactions', 400));
+    }
+
+    if (transaction.status === 'refunded') {
+      return next(new AppError('Transaction already refunded', 400));
+    }
+
+    const refundAmount = amount || transaction.amount;
+    if (refundAmount > transaction.amount) {
+      return next(new AppError('Refund amount cannot exceed transaction amount', 400));
+    }
+
+    transaction.status = 'refunded';
+    transaction.refundedAt = new Date();
+    transaction.refundAmount = refundAmount;
+    await transaction.save();
+
+    const appointment = await Appointment.findById(transaction.appointment);
+    if (appointment) {
+      appointment.paymentStatus = 'refunded';
+      await appointment.save();
+    }
+
+    const customer = await User.findById(transaction.customer);
+    if (customer) {
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+          <table role="presentation" style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td align="center" style="padding: 40px 0;">
+                <table role="presentation" style="width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  <tr>
+                    <td style="padding: 40px 40px 20px; text-align: center; background-color: #3498db; border-radius: 8px 8px 0 0;">
+                      <h1 style="margin: 0; color: #ffffff; font-size: 28px;">Refund Processed</h1>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 40px;">
+                      <p style="margin: 0 0 20px; color: #333333; font-size: 16px; line-height: 1.5;">
+                        Hi ${customer.name},
+                      </p>
+                      <p style="margin: 0 0 20px; color: #333333; font-size: 16px; line-height: 1.5;">
+                        Your refund has been processed successfully. Here are the details:
+                      </p>
+                      <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 20px 0; background-color: #f8f8f8; border-radius: 8px;">
+                        <tr>
+                          <td style="padding: 20px;">
+                            <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                              <tr>
+                                <td style="padding: 10px 0; color: #666666; font-size: 14px;">Transaction ID:</td>
+                                <td style="padding: 10px 0; color: #333333; font-size: 14px; font-weight: bold; text-align: right;">${transaction.vnpTxnRef}</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 10px 0; color: #666666; font-size: 14px;">Original Amount:</td>
+                                <td style="padding: 10px 0; color: #333333; font-size: 14px; font-weight: bold; text-align: right;">${transaction.amount.toLocaleString('vi-VN')} VND</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 10px 0; border-top: 1px solid #dddddd; color: #666666; font-size: 14px;">Refund Amount:</td>
+                                <td style="padding: 10px 0; border-top: 1px solid #dddddd; color: #3498db; font-size: 18px; font-weight: bold; text-align: right;">${refundAmount.toLocaleString('vi-VN')} VND</td>
+                              </tr>
+                              ${reason ? `
+                              <tr>
+                                <td style="padding: 10px 0; color: #666666; font-size: 14px;">Reason:</td>
+                                <td style="padding: 10px 0; color: #333333; font-size: 14px; text-align: right;">${reason}</td>
+                              </tr>
+                              ` : ''}
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+                      <p style="margin: 20px 0; color: #666666; font-size: 14px; line-height: 1.5;">
+                        The refund will be credited to your original payment method within 5-7 business days.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 20px 40px; background-color: #f8f8f8; border-radius: 0 0 8px 8px; text-align: center;">
+                      <p style="margin: 0; color: #666666; font-size: 14px;">
+                        Best regards,<br>The Barberly Team
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `;
+
+      try {
+        await sendEmail({
+          to: customer.email,
+          subject: 'Refund Processed - Barberly',
+          html
+        });
+      } catch (emailError) {
+        console.error('Error sending refund email:', emailError.message);
+      }
+    }
+
+    await transaction.populate([
+      { path: 'customer', select: 'name email phone' },
+      { path: 'appointment', select: 'date startTime endTime totalPrice status' }
+    ]);
+
+    sendResponse(res, 200, { transaction }, 'Refund processed successfully');
+  } catch (error) {
+    next(error);
+  }
+};
