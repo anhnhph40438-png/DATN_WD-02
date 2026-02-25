@@ -222,6 +222,32 @@ const toggleBarberStatus = async (req, res, next) => {
   }
 };
 
+const deleteBarber = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const barber = await Barber.findById(id).populate('user');
+
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
+    }
+
+    if (barber.user && barber.user.avatar) {
+      await deleteFile(barber.user.avatar);
+    }
+
+    await Barber.findByIdAndDelete(id);
+
+    if (barber.user) {
+      await User.findByIdAndDelete(barber.user._id);
+    }
+
+    sendResponse(res, 200, null, 'Barber and associated user deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAvailableBarbers
 };
