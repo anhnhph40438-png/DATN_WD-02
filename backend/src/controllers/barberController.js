@@ -198,6 +198,30 @@ const updateWorkingHours = async (req, res, next) => {
   }
 };
 
+const toggleBarberStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const barber = await Barber.findById(id);
+
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
+    }
+
+    barber.isAvailable = !barber.isAvailable;
+    await barber.save();
+
+    sendResponse(
+      res,
+      200,
+      { barber: { _id: barber._id, isAvailable: barber.isAvailable } },
+      `Barber ${barber.isAvailable ? 'is now available' : 'is now unavailable'}`
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAvailableBarbers
 };
