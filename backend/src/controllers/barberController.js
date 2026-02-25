@@ -148,6 +148,56 @@ const updateBarber = async (req, res, next) => {
   }
 };
 
+const updateWorkingHours = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { workingHours } = req.body;
+
+    if (!workingHours || typeof workingHours !== 'object') {
+      return next(new AppError('Working hours object is required', 400));
+    }
+
+    const barber = await Barber.findById(id);
+
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
+    }
+
+    if (req.user.role !== 'admin' && barber.user.toString() !== req.user._id.toString()) {
+      return next(new AppError('You do not have permission to update this schedule', 403));
+    }
+
+    const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+    for (const day of validDays) {
+      if (workingHours[day]) {
+        const daySchedule = workingHours[day];
+
+        if (daySchedule.start !== undefined) {
+          barber.workingHours[day].start = daySchedule.start;
+        }
+        if (daySchedule.end !== undefined) {
+          barber.workingHours[day].end = daySchedule.end;
+        }
+        if (daySchedule.isOff !== undefined) {
+          barber.workingHours[day].isOff = daySchedule.isOff;
+        }
+      }
+    }
+
+    await barber.save();
+
+    sendResponse(
+      res,
+      200,
+      { workingHours: barber.workingHours },
+      'Working hours updated successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAvailableBarbers
 };
