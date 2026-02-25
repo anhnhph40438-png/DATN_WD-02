@@ -17,3 +17,13 @@ const generateTxnRef = () => {
   const random = Math.random().toString(36).substring(2, 8).toUpperCase();
   return `${timestamp}${random}`;
 };
+
+const getClientIp = (req) => {
+  return (
+    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    req.connection?.remoteAddress ||
+    req.socket?.remoteAddress ||
+    req.ip ||
+    '127.0.0.1'
+  );
+};
