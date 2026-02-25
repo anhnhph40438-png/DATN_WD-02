@@ -131,3 +131,60 @@ const sendInvoiceEmail = async (transaction, appointment) => {
     console.error('Error sending invoice email:', error.message);
   }
 };
+
+const createPayment = async (req, res, next) => {
+  try {
+    const { appointmentId } = req.params;
+    const customerId = req.user._id;
+
+    const appointment = await Appointment.findById(appointmentId)
+      .populate('services', 'name price');
+
+    if (!appointment) {
+      return next(new AppError('Appointment not found', 404));
+    }
+
+    if (appointment.customer.toString() !== customerId.toString()) {
+      return next(new AppError('You do not have permission to pay for this appointment', 403));
+    }
+
+    if (appointment.paymentStatus === 'paid') {
+      return next(new AppError('This appointment has already been paid', 400));
+    }
+
+    const existingTransaction = await Transaction.findOne({
+      appointment: appointmentId,
+      status: 'pending'
+    });
+
+    if (existingTransaction) {
+      const vnpTxnRef = generateTxnRef();
+      existingTransaction.vnpTxnRef = vnpTxnRef;
+      await existingTransaction.save();
+
+      const ipAddr = getClientIp(req);
+      const paymentUrl = createPaymentUrl(appointment, vnpTxnRef, ipAddr);
+
+      return sendResponse(res, 200, { paymentUrl }, 'Payment URL created successfully');
+    }
+
+    const vnpTxnRef = generateTxnRef();
+
+    await Transaction.create({
+      appointment: appointmentId,
+      customer: customerId,
+      amount: appointment.totalPrice,
+      vnpTxnRef,
+      status: 'pending',
+      paymentMethod: 'vnpay'
+    });
+
+    const ipAddr = getClientIp(req);
+
+    const paymentUrl = createPaymentUrl(appointment, vnpTxnRef, ipAddr);
+
+    sendResponse(res, 200, { paymentUrl }, 'Payment URL created successfully');
+  } catch (error) {
+    next(error);
+  }
+};
