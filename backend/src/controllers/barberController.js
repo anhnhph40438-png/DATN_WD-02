@@ -7,6 +7,17 @@ const AppError = require('../utils/AppError');
 const sendResponse = require('../utils/sendResponse');
 const { deleteFile } = require('../middlewares/upload');
 
+const getDefaultShop = async () => {
+  let shop = await Shop.findOne();
+  if (!shop) {
+    shop = await Shop.create({
+      name: 'Barberly Shop',
+      address: '123 Main Street, City',
+      phone: '0123456789'
+    });
+  }
+  return shop;
+};
 
 const getAvailableBarbers = async (req, res, next) => {
   try {
