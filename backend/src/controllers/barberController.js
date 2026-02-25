@@ -248,6 +248,103 @@ const deleteBarber = async (req, res, next) => {
   }
 };
 
+const getAvailableSlots = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { date } = req.query;
+
+    if (!date) {
+      return next(new AppError('Date query parameter is required', 400));
+    }
+
+    const targetDate = new Date(date);
+    if (isNaN(targetDate.getTime())) {
+      return next(new AppError('Invalid date format. Use YYYY-MM-DD', 400));
+    }
+
+    const barber = await Barber.findById(id);
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
+    }
+
+    if (!barber.isAvailable) {
+      return sendResponse(res, 200, { availableSlots: [], message: 'Barber is not available' }, 'Barber is currently not available');
+    }
+
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayOfWeek = days[targetDate.getDay()];
+
+    const workingDay = barber.workingHours[dayOfWeek];
+
+    if (workingDay.isOff) {
+      return sendResponse(res, 200, { availableSlots: [], message: `Barber is off on ${dayOfWeek}` }, 'Barber is off on this day');
+    }
+
+    const startTime = workingDay.start;
+    const endTime = workingDay.end;
+    const allSlots = generateTimeSlots(startTime, endTime, 30);
+
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingAppointments = await Appointment.find({
+      barber: id,
+      date: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      },
+      status: { $nin: ['cancelled'] }
+    });
+
+    const bookedSlots = new Set();
+    existingAppointments.forEach(appointment => {
+      const appointmentSlots = generateTimeSlots(
+        appointment.startTime,
+        appointment.endTime,
+        30
+      );
+      appointmentSlots.forEach(slot => bookedSlots.add(slot));
+    });
+
+    const availableSlots = allSlots.filter(slot => !bookedSlots.has(slot));
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    targetDate.setHours(0, 0, 0, 0);
+
+    let finalSlots = availableSlots;
+    if (targetDate.getTime() === today.getTime()) {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+      finalSlots = availableSlots.filter(slot => {
+        const [hour, minute] = slot.split(':').map(Number);
+        const slotTimeInMinutes = hour * 60 + minute;
+        return slotTimeInMinutes > currentTimeInMinutes + 30;
+      });
+    }
+
+    sendResponse(
+      res,
+      200,
+      {
+        date: date,
+        dayOfWeek,
+        workingHours: { start: startTime, end: endTime },
+        availableSlots: finalSlots
+      },
+      'Available slots retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAvailableBarbers
 };
