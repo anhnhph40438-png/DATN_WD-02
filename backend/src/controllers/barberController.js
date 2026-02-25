@@ -119,6 +119,35 @@ const createBarber = async (req, res, next) => {
   }
 };
 
+const updateBarber = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { bio, skills, portfolio } = req.body;
+
+    const barber = await Barber.findById(id);
+
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
+    }
+
+    if (req.user.role !== 'admin' && barber.user.toString() !== req.user._id.toString()) {
+      return next(new AppError('You do not have permission to update this profile', 403));
+    }
+
+    if (bio !== undefined) barber.bio = bio;
+    if (skills !== undefined) barber.skills = skills;
+    if (portfolio !== undefined) barber.portfolio = portfolio;
+
+    await barber.save();
+
+    await barber.populate('user', 'name email phone avatar');
+
+    sendResponse(res, 200, { barber }, 'Barber profile updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAvailableBarbers
 };
