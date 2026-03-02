@@ -219,6 +219,24 @@ const updatePromotion = async (req, res, next) => {
     next(error);
   }
 };
+const deletePromotion = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const promotion = await Promotion.findById(id);
+
+    if (!promotion) {
+      return next(new AppError('Promotion not found', 404));
+    }
+
+    await Promotion.findByIdAndDelete(id);
+
+    sendResponse(res, 200, null, 'Promotion deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 module.exports = {
   createPromotion
