@@ -18,3 +18,13 @@ const getOrCreateShop = async () => {
 
   return shop;
 };
+
+const getShop = async (req, res, next) => {
+  try {
+    const shop = await getOrCreateShop();
+
+    sendResponse(res, 200, { shop }, 'Shop info retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
