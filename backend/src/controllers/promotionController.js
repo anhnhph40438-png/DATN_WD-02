@@ -70,7 +70,6 @@ const createPromotion = async (req, res, next) => {
   }
 };
 
-
 const getPromotions = async (req, res, next) => {
   try {
     const { isActive, page = 1, limit = 10, search } = req.query;
@@ -219,6 +218,7 @@ const updatePromotion = async (req, res, next) => {
     next(error);
   }
 };
+
 const deletePromotion = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -379,7 +379,13 @@ const validatePromotion = async (req, res, next) => {
   }
 };
 
-
 module.exports = {
-  createPromotion
+  createPromotion,
+  getPromotions,
+  getPromotionById,
+  updatePromotion,
+  deletePromotion,
+  togglePromotionStatus,
+  applyPromotion,
+  validatePromotion
 };
