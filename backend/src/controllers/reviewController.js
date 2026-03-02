@@ -113,3 +113,43 @@ const getReviews = async (req, res, next) => {
     next(error);
   }
 };
+
+const getMyReviews = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const customerId = req.user._id;
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const reviews = await Review.find({ customer: customerId })
+      .populate({
+        path: 'barber',
+        populate: { path: 'user', select: 'name avatar' }
+      })
+      .populate('appointment', 'date services')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    const total = await Review.countDocuments({ customer: customerId });
+
+    sendResponse(
+      res,
+      200,
+      {
+        reviews,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum)
+        }
+      },
+      'My reviews retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
