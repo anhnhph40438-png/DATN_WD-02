@@ -176,3 +176,36 @@ const getReviewById = async (req, res, next) => {
     next(error);
   }
 };
+
+const updateReview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rating, comment } = req.body;
+    const customerId = req.user._id;
+
+    const review = await Review.findById(id);
+
+    if (!review) {
+      return next(new AppError('Review not found', 404));
+    }
+
+    if (review.customer.toString() !== customerId.toString()) {
+      return next(new AppError('You can only update your own reviews', 403));
+    }
+
+    if (rating !== undefined) review.rating = rating;
+    if (comment !== undefined) review.comment = comment;
+
+    await review.save();
+
+    await review.populate([
+      { path: 'customer', select: 'name avatar' },
+      { path: 'barber', populate: { path: 'user', select: 'name avatar' } },
+      { path: 'appointment', select: 'date services' }
+    ]);
+
+    sendResponse(res, 200, { review }, 'Review updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
