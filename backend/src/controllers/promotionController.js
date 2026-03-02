@@ -119,6 +119,24 @@ const getPromotions = async (req, res, next) => {
   }
 };
 
+const getPromotionById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const promotion = await Promotion.findById(id).populate(
+      'applicableServices',
+      'name price duration'
+    );
+
+    if (!promotion) {
+      return next(new AppError('Promotion not found', 404));
+    }
+
+    sendResponse(res, 200, { promotion }, 'Promotion retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
 
 module.exports = {
   createPromotion
