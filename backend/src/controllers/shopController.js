@@ -64,3 +64,27 @@ const updateOpeningHours = async (req, res, next) => {
     next(error);
   }
 };
+
+const uploadShopImages = async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return next(new AppError('Please upload at least one image', 400));
+    }
+
+    let shop = await getOrCreateShop();
+
+    const newImageUrls = req.files.map(file => file.url);
+    shop.images = [...shop.images, ...newImageUrls];
+
+    await shop.save();
+
+    sendResponse(
+      res,
+      200,
+      { images: shop.images },
+      `${newImageUrls.length} image(s) uploaded successfully`
+    );
+  } catch (error) {
+    next(error);
+  }
+};
