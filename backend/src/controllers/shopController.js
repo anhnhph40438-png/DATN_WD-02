@@ -29,6 +29,27 @@ const getShop = async (req, res, next) => {
   }
 };
 
+const updateShop = async (req, res, next) => {
+  try {
+    const { name, address, phone, email, description, isActive } = req.body;
+
+    let shop = await getOrCreateShop();
+
+    if (name !== undefined) shop.name = name;
+    if (address !== undefined) shop.address = address;
+    if (phone !== undefined) shop.phone = phone;
+    if (email !== undefined) shop.email = email;
+    if (description !== undefined) shop.description = description;
+    if (isActive !== undefined) shop.isActive = isActive;
+
+    await shop.save();
+
+    sendResponse(res, 200, { shop }, 'Shop info updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updateOpeningHours = async (req, res, next) => {
   try {
     const { openingHours } = req.body;
@@ -111,4 +132,12 @@ const deleteShopImage = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+module.exports = {
+  getShop,
+  updateShop,
+  updateOpeningHours,
+  uploadShopImages,
+  deleteShopImage
 };
