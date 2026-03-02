@@ -153,3 +153,26 @@ const getMyReviews = async (req, res, next) => {
     next(error);
   }
 };
+
+
+const getReviewById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const review = await Review.findById(id)
+      .populate('customer', 'name avatar')
+      .populate({
+        path: 'barber',
+        populate: { path: 'user', select: 'name avatar' }
+      })
+      .populate('appointment', 'date services');
+
+    if (!review) {
+      return next(new AppError('Review not found', 404));
+    }
+
+    sendResponse(res, 200, { review }, 'Review retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
