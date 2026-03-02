@@ -46,3 +46,70 @@ const createReview = async (req, res, next) => {
     next(error);
   }
 };
+
+
+const getReviews = async (req, res, next) => {
+  try {
+    const { barberId, rating, sort = 'newest', page = 1, limit = 10 } = req.query;
+
+    let query = {};
+
+    if (barberId) {
+      query.barber = barberId;
+    }
+
+    if (rating) {
+      query.rating = parseInt(rating, 10);
+    }
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    let sortOption = {};
+    switch (sort) {
+      case 'oldest':
+        sortOption = { createdAt: 1 };
+        break;
+      case 'highest':
+        sortOption = { rating: -1, createdAt: -1 };
+        break;
+      case 'lowest':
+        sortOption = { rating: 1, createdAt: -1 };
+        break;
+      case 'newest':
+      default:
+        sortOption = { createdAt: -1 };
+        break;
+    }
+
+    const reviews = await Review.find(query)
+      .populate('customer', 'name avatar')
+      .populate({
+        path: 'barber',
+        populate: { path: 'user', select: 'name avatar' }
+      })
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNum);
+
+    const total = await Review.countDocuments(query);
+
+    sendResponse(
+      res,
+      200,
+      {
+        reviews,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum)
+        }
+      },
+      'Reviews retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
