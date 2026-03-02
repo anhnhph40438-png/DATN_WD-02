@@ -263,6 +263,80 @@ const togglePromotionStatus = async (req, res, next) => {
   }
 };
 
+const applyPromotion = async (req, res, next) => {
+  try {
+    const { code, orderAmount, serviceIds } = req.body;
+
+    const promotion = await Promotion.findOne({
+      code: code.toUpperCase()
+    }).populate('applicableServices', 'name');
+
+    if (!promotion) {
+      return next(new AppError('Invalid promotion code', 404));
+    }
+
+    const validationResult = promotion.isValid();
+
+    if (!validationResult.valid) {
+      return next(new AppError(validationResult.message, 400));
+    }
+
+    if (orderAmount < promotion.minOrderAmount) {
+      return next(
+        new AppError(
+          `Minimum order amount for this promotion is ${promotion.minOrderAmount.toLocaleString('vi-VN')} VND`,
+          400
+        )
+      );
+    }
+
+    if (promotion.applicableServices && promotion.applicableServices.length > 0) {
+      if (!serviceIds || serviceIds.length === 0) {
+        return next(new AppError('Service IDs are required for this promotion', 400));
+      }
+
+      const applicableServiceIds = promotion.applicableServices.map((s) => s._id.toString());
+      const hasApplicableService = serviceIds.some((sid) =>
+        applicableServiceIds.includes(sid.toString())
+      );
+
+      if (!hasApplicableService) {
+        const serviceNames = promotion.applicableServices.map((s) => s.name).join(', ');
+        return next(
+          new AppError(`This promotion is only applicable for: ${serviceNames}`, 400)
+        );
+      }
+    }
+
+    const discountResult = promotion.calculateDiscount(orderAmount);
+
+    if (discountResult.discount === 0 && discountResult.message) {
+      return next(new AppError(discountResult.message, 400));
+    }
+
+    sendResponse(
+      res,
+      200,
+      {
+        valid: true,
+        code: promotion.code,
+        discountType: promotion.discountType,
+        discountValue: promotion.discountValue,
+        discount: discountResult.discount,
+        finalAmount: discountResult.finalAmount,
+        promotion: {
+          _id: promotion._id,
+          code: promotion.code,
+          description: promotion.description
+        }
+      },
+      'Promotion applied successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 module.exports = {
   createPromotion
