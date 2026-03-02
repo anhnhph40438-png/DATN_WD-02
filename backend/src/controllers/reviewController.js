@@ -47,7 +47,6 @@ const createReview = async (req, res, next) => {
   }
 };
 
-
 const getReviews = async (req, res, next) => {
   try {
     const { barberId, rating, sort = 'newest', page = 1, limit = 10 } = req.query;
@@ -114,6 +113,96 @@ const getReviews = async (req, res, next) => {
   }
 };
 
+const getBarberReviews = async (req, res, next) => {
+  try {
+    const { barberId } = req.params;
+    const { rating, sort = 'newest', page = 1, limit = 10 } = req.query;
+
+    const barber = await Barber.findById(barberId);
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
+    }
+
+    let query = { barber: barberId };
+
+    if (rating) {
+      query.rating = parseInt(rating, 10);
+    }
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    let sortOption = {};
+    switch (sort) {
+      case 'oldest':
+        sortOption = { createdAt: 1 };
+        break;
+      case 'highest':
+        sortOption = { rating: -1, createdAt: -1 };
+        break;
+      case 'lowest':
+        sortOption = { rating: 1, createdAt: -1 };
+        break;
+      case 'newest':
+      default:
+        sortOption = { createdAt: -1 };
+        break;
+    }
+
+    const reviews = await Review.find(query)
+      .populate('customer', 'name avatar')
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNum);
+
+    const total = await Review.countDocuments(query);
+
+    const stats = await Review.aggregate([
+      { $match: { barber: barber._id } },
+      {
+        $group: {
+          _id: null,
+          averageRating: { $avg: '$rating' },
+          totalReviews: { $sum: 1 },
+          ratingDistribution: {
+            $push: '$rating'
+          }
+        }
+      }
+    ]);
+
+    let ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    if (stats.length > 0) {
+      stats[0].ratingDistribution.forEach(r => {
+        ratingDistribution[r]++;
+      });
+    }
+
+    sendResponse(
+      res,
+      200,
+      {
+        reviews,
+        stats: {
+          averageRating: stats.length > 0 ? Math.round(stats[0].averageRating * 10) / 10 : 0,
+          totalReviews: stats.length > 0 ? stats[0].totalReviews : 0,
+          ratingDistribution
+        },
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum)
+        }
+      },
+      'Barber reviews retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getMyReviews = async (req, res, next) => {
   try {
     const { page = 1, limit = 10 } = req.query;
@@ -153,7 +242,6 @@ const getMyReviews = async (req, res, next) => {
     next(error);
   }
 };
-
 
 const getReviewById = async (req, res, next) => {
   try {
@@ -234,4 +322,14 @@ const deleteReview = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+module.exports = {
+  createReview,
+  getReviews,
+  getBarberReviews,
+  getMyReviews,
+  getReviewById,
+  updateReview,
+  deleteReview
 };
