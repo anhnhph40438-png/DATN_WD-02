@@ -139,3 +139,27 @@ const updateService = async (req, res, next) => {
     next(error);
   }
 };
+
+const toggleServiceStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const service = await Service.findById(id);
+
+    if (!service) {
+      return next(new AppError('Service not found', 404));
+    }
+
+    service.isActive = !service.isActive;
+    await service.save();
+
+    sendResponse(
+      res,
+      200,
+      { service: { _id: service._id, isActive: service.isActive } },
+      `Service ${service.isActive ? 'activated' : 'deactivated'} successfully`
+    );
+  } catch (error) {
+    next(error);
+  }
+};
