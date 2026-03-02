@@ -163,3 +163,26 @@ const toggleServiceStatus = async (req, res, next) => {
     next(error);
   }
 };
+
+const deleteService = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const service = await Service.findById(id);
+
+    if (!service) {
+      return next(new AppError('Service not found', 404));
+    }
+
+    if (service.image) {
+      await deleteFile(service.image);
+    }
+
+    await Service.findByIdAndDelete(id);
+
+    sendResponse(res, 200, null, 'Service deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
