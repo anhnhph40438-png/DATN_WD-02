@@ -337,6 +337,48 @@ const applyPromotion = async (req, res, next) => {
   }
 };
 
+const validatePromotion = async (req, res, next) => {
+  try {
+    const { code } = req.params;
+
+    const promotion = await Promotion.findOne({
+      code: code.toUpperCase()
+    }).populate('applicableServices', 'name price');
+
+    if (!promotion) {
+      return next(new AppError('Invalid promotion code', 404));
+    }
+
+    const validationResult = promotion.isValid();
+
+    sendResponse(
+      res,
+      200,
+      {
+        valid: validationResult.valid,
+        message: validationResult.message,
+        promotion: validationResult.valid
+          ? {
+              _id: promotion._id,
+              code: promotion.code,
+              description: promotion.description,
+              discountType: promotion.discountType,
+              discountValue: promotion.discountValue,
+              minOrderAmount: promotion.minOrderAmount,
+              maxDiscount: promotion.maxDiscount,
+              startDate: promotion.startDate,
+              endDate: promotion.endDate,
+              applicableServices: promotion.applicableServices
+            }
+          : null
+      },
+      validationResult.valid ? 'Promotion code is valid' : validationResult.message
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 module.exports = {
   createPromotion
