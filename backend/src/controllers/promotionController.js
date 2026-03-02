@@ -237,6 +237,32 @@ const deletePromotion = async (req, res, next) => {
   }
 };
 
+const togglePromotionStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const promotion = await Promotion.findById(id);
+
+    if (!promotion) {
+      return next(new AppError('Promotion not found', 404));
+    }
+
+    promotion.isActive = !promotion.isActive;
+    await promotion.save();
+
+    await promotion.populate('applicableServices', 'name price');
+
+    sendResponse(
+      res,
+      200,
+      { promotion },
+      `Promotion ${promotion.isActive ? 'activated' : 'deactivated'} successfully`
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 module.exports = {
   createPromotion
