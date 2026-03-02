@@ -78,3 +78,25 @@ const getServiceById = async (req, res, next) => {
     next(error);
   }
 };
+
+const createService = async (req, res, next) => {
+  try {
+    const { name, description, price, duration, category } = req.body;
+
+    const service = await Service.create({
+      name,
+      description,
+      price,
+      duration,
+      category,
+      image: req.file ? req.file.url : undefined
+    });
+
+    sendResponse(res, 201, { service }, 'Service created successfully');
+  } catch (error) {
+    if (req.file) {
+      await deleteFile(req.file.url);
+    }
+    next(error);
+  }
+};
