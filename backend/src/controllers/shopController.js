@@ -88,3 +88,27 @@ const uploadShopImages = async (req, res, next) => {
     next(error);
   }
 };
+
+const deleteShopImage = async (req, res, next) => {
+  try {
+    const { index } = req.params;
+    const imageIndex = parseInt(index, 10);
+
+    let shop = await getOrCreateShop();
+
+    if (isNaN(imageIndex) || imageIndex < 0 || imageIndex >= shop.images.length) {
+      return next(new AppError('Invalid image index', 400));
+    }
+
+    const imageUrl = shop.images[imageIndex];
+
+    shop.images.splice(imageIndex, 1);
+    await shop.save();
+
+    await deleteFile(imageUrl);
+
+    sendResponse(res, 200, { images: shop.images }, 'Image deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
