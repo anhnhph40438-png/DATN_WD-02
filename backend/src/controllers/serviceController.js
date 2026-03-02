@@ -186,3 +186,12 @@ const deleteService = async (req, res, next) => {
   }
 };
 
+module.exports = {
+  getActiveServices,
+  getAllServices,
+  getServiceById,
+  createService,
+  updateService,
+  toggleServiceStatus,
+  deleteService
+};
