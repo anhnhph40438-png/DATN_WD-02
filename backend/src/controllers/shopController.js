@@ -28,3 +28,39 @@ const getShop = async (req, res, next) => {
     next(error);
   }
 };
+
+const updateOpeningHours = async (req, res, next) => {
+  try {
+    const { openingHours } = req.body;
+
+    if (!openingHours || typeof openingHours !== 'object') {
+      return next(new AppError('Opening hours object is required', 400));
+    }
+
+    let shop = await getOrCreateShop();
+
+    const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+    for (const day of validDays) {
+      if (openingHours[day]) {
+        const daySchedule = openingHours[day];
+
+        if (daySchedule.open !== undefined) {
+          shop.openingHours[day].open = daySchedule.open;
+        }
+        if (daySchedule.close !== undefined) {
+          shop.openingHours[day].close = daySchedule.close;
+        }
+        if (daySchedule.isClosed !== undefined) {
+          shop.openingHours[day].isClosed = daySchedule.isClosed;
+        }
+      }
+    }
+
+    await shop.save();
+
+    sendResponse(res, 200, { openingHours: shop.openingHours }, 'Opening hours updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
