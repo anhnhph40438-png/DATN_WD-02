@@ -62,3 +62,19 @@ const getAllServices = async (req, res, next) => {
     next(error);
   }
 };
+
+const getServiceById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const service = await Service.findById(id);
+
+    if (!service) {
+      return next(new AppError('Service not found', 404));
+    }
+
+    sendResponse(res, 200, { service }, 'Service retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
