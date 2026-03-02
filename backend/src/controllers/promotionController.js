@@ -138,6 +138,88 @@ const getPromotionById = async (req, res, next) => {
   }
 };
 
+const updatePromotion = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      code,
+      description,
+      discountType,
+      discountValue,
+      minOrderAmount,
+      maxDiscount,
+      usageLimit,
+      startDate,
+      endDate,
+      isActive,
+      applicableServices
+    } = req.body;
+
+    const promotion = await Promotion.findById(id);
+
+    if (!promotion) {
+      return next(new AppError('Promotion not found', 404));
+    }
+
+    if (code && code.toUpperCase() !== promotion.code) {
+      const existingPromotion = await Promotion.findOne({
+        code: code.toUpperCase(),
+        _id: { $ne: id }
+      });
+
+      if (existingPromotion) {
+        return next(new AppError('Promotion code already exists', 400));
+      }
+    }
+
+    if (applicableServices && applicableServices.length > 0) {
+      const services = await Service.find({
+        _id: { $in: applicableServices }
+      });
+
+      if (services.length !== applicableServices.length) {
+        return next(new AppError('One or more service IDs are invalid', 400));
+      }
+    }
+
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      if (start >= end) {
+        return next(new AppError('End date must be after start date', 400));
+      }
+    }
+
+    const newDiscountType = discountType || promotion.discountType;
+    const newDiscountValue = discountValue !== undefined ? discountValue : promotion.discountValue;
+
+    if (newDiscountType === 'percentage' && newDiscountValue > 100) {
+      return next(new AppError('Percentage discount cannot exceed 100%', 400));
+    }
+
+    if (code) promotion.code = code.toUpperCase();
+    if (description !== undefined) promotion.description = description;
+    if (discountType) promotion.discountType = discountType;
+    if (discountValue !== undefined) promotion.discountValue = discountValue;
+    if (minOrderAmount !== undefined) promotion.minOrderAmount = minOrderAmount;
+    if (maxDiscount !== undefined) promotion.maxDiscount = maxDiscount;
+    if (usageLimit !== undefined) promotion.usageLimit = usageLimit;
+    if (startDate) promotion.startDate = new Date(startDate);
+    if (endDate) promotion.endDate = new Date(endDate);
+    if (isActive !== undefined) promotion.isActive = isActive;
+    if (applicableServices !== undefined) promotion.applicableServices = applicableServices;
+
+    await promotion.save();
+
+    await promotion.populate('applicableServices', 'name price');
+
+    sendResponse(res, 200, { promotion }, 'Promotion updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createPromotion
 };
