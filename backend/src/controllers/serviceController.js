@@ -31,3 +31,34 @@ const getActiveServices = async (req, res, next) => {
   }
 };
 
+const getAllServices = async (req, res, next) => {
+  try {
+    const { category, minPrice, maxPrice, isActive } = req.query;
+
+    const query = {};
+
+    if (category) {
+      query.category = category;
+    }
+
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      query.price = {};
+      if (minPrice !== undefined) {
+        query.price.$gte = parseFloat(minPrice);
+      }
+      if (maxPrice !== undefined) {
+        query.price.$lte = parseFloat(maxPrice);
+      }
+    }
+
+    if (isActive !== undefined) {
+      query.isActive = isActive === 'true';
+    }
+
+    const services = await Service.find(query).sort({ category: 1, name: 1 });
+
+    sendResponse(res, 200, { services }, 'All services retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
