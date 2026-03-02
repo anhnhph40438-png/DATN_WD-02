@@ -100,3 +100,42 @@ const createService = async (req, res, next) => {
     next(error);
   }
 };
+
+const updateService = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, description, price, duration, category, isActive } = req.body;
+
+    const service = await Service.findById(id);
+
+    if (!service) {
+      if (req.file) {
+        await deleteFile(req.file.url);
+      }
+      return next(new AppError('Service not found', 404));
+    }
+
+    if (name !== undefined) service.name = name;
+    if (description !== undefined) service.description = description;
+    if (price !== undefined) service.price = price;
+    if (duration !== undefined) service.duration = duration;
+    if (category !== undefined) service.category = category;
+    if (isActive !== undefined) service.isActive = isActive;
+
+    if (req.file) {
+      if (service.image) {
+        await deleteFile(service.image);
+      }
+      service.image = req.file.url;
+    }
+
+    await service.save();
+
+    sendResponse(res, 200, { service }, 'Service updated successfully');
+  } catch (error) {
+    if (req.file) {
+      await deleteFile(req.file.url);
+    }
+    next(error);
+  }
+};
