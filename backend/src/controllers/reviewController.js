@@ -209,3 +209,29 @@ const updateReview = async (req, res, next) => {
     next(error);
   }
 };
+
+const deleteReview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+    const userRole = req.user.role;
+
+    const review = await Review.findById(id);
+
+    if (!review) {
+      return next(new AppError('Review not found', 404));
+    }
+
+    if (userRole === 'customer') {
+      if (review.customer.toString() !== userId.toString()) {
+        return next(new AppError('You can only delete your own reviews', 403));
+      }
+    }
+
+    await Review.findByIdAndDelete(id);
+
+    sendResponse(res, 200, null, 'Review deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
