@@ -1,0 +1,33 @@
+const Service = require('../models/Service');
+const AppError = require('../utils/AppError');
+const sendResponse = require('../utils/sendResponse');
+const { deleteFile } = require('../middlewares/upload');
+
+const getActiveServices = async (req, res, next) => {
+  try {
+    const { category, minPrice, maxPrice } = req.query;
+
+    const query = { isActive: true };
+
+    if (category) {
+      query.category = category;
+    }
+
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      query.price = {};
+      if (minPrice !== undefined) {
+        query.price.$gte = parseFloat(minPrice);
+      }
+      if (maxPrice !== undefined) {
+        query.price.$lte = parseFloat(maxPrice);
+      }
+    }
+
+    const services = await Service.find(query).sort({ category: 1, name: 1 });
+
+    sendResponse(res, 200, { services }, 'Services retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
