@@ -172,6 +172,44 @@ const deleteUser = async (req, res, next) => {
 };
 
 
+const uploadAvatar = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return next(new AppError('Please upload an image file', 400));
+    }
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      await deleteFile(req.file.url);
+      return next(new AppError('User not found', 404));
+    }
+
+    if (req.user.role !== 'admin' && req.user._id.toString() !== id) {
+      await deleteFile(req.file.url);
+      return next(new AppError('You do not have permission to update this avatar', 403));
+    }
+
+    if (user.avatar) {
+      await deleteFile(user.avatar);
+    }
+
+    user.avatar = req.file.url;
+    await user.save({ validateBeforeSave: false });
+
+    sendResponse(
+      res,
+      200,
+      { avatar: user.avatar },
+      'Avatar uploaded successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllUsers
 };
