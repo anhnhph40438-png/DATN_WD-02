@@ -145,6 +145,33 @@ const toggleUserStatus = async (req, res, next) => {
   }
 };
 
+const deleteUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    if (user._id.toString() === req.user._id.toString()) {
+      return next(new AppError('You cannot delete your own account', 400));
+    }
+
+    if (user.avatar) {
+      await deleteFile(user.avatar);
+    }
+
+    await User.findByIdAndDelete(id);
+
+    sendResponse(res, 200, null, 'User deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 module.exports = {
   getAllUsers
 };
