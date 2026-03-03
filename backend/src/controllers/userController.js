@@ -210,6 +210,12 @@ const uploadAvatar = async (req, res, next) => {
   }
 };
 
+
 module.exports = {
-  getAllUsers
+  getAllUsers,
+  getUserById,
+  updateUser,
+  toggleUserStatus,
+  deleteUser,
+  uploadAvatar
 };
