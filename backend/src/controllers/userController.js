@@ -117,6 +117,33 @@ const updateUser = async (req, res, next) => {
   }
 };
 
+const toggleUserStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    if (user._id.toString() === req.user._id.toString()) {
+      return next(new AppError('You cannot deactivate your own account', 400));
+    }
+
+    user.isActive = !user.isActive;
+    await user.save({ validateBeforeSave: false });
+
+    sendResponse(
+      res,
+      200,
+      { user: { _id: user._id, isActive: user.isActive } },
+      `User ${user.isActive ? 'activated' : 'deactivated'} successfully`
+    );
+  } catch (error) {
+    next(error);
+  }
+};
 
 module.exports = {
   getAllUsers
