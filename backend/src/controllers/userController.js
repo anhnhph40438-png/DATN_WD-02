@@ -64,6 +64,22 @@ const getAllUsers = async (req, res, next) => {
   }
 };
 
+const getUserById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id).select('-password');
+
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    sendResponse(res, 200, { user }, 'User retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllUsers
 };
