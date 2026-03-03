@@ -80,6 +80,44 @@ const getUserById = async (req, res, next) => {
   }
 };
 
+const updateUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, role, isActive } = req.body;
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    if (email && email !== user.email) {
+      const existingEmail = await User.findOne({ email, _id: { $ne: id } });
+      if (existingEmail) {
+        return next(new AppError('Email already in use', 400));
+      }
+    }
+
+    if (phone && phone !== user.phone) {
+      const existingPhone = await User.findOne({ phone, _id: { $ne: id } });
+      if (existingPhone) {
+        return next(new AppError('Phone number already in use', 400));
+      }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { name, email, phone, role, isActive },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    sendResponse(res, 200, { user: updatedUser }, 'User updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 module.exports = {
   getAllUsers
 };
