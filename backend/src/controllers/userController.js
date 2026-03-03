@@ -3,6 +3,8 @@ const AppError = require('../utils/AppError');
 const sendResponse = require('../utils/sendResponse');
 const { deleteFile } = require('../middlewares/upload');
 
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const getAllUsers = async (req, res, next) => {
   try {
     const {
