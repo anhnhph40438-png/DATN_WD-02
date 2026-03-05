@@ -89,3 +89,5 @@ const errorHandler = (err, req, res, next) => {
     sendErrorProd(error, res);
   }
 };
+
+module.exports = errorHandler;
