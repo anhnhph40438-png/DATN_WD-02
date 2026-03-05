@@ -31,3 +31,15 @@ const fileFilter = (req, file, cb) => {
     );
   }
 };
+
+// Tạo Cloudinary storage cho từng loại upload
+const createCloudinaryStorage = (folder) => {
+  return new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: `barberly/${folder}`,
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+      transformation: [{ quality: 'auto', fetch_format: 'auto' }]
+    }
+  });
+};
