@@ -52,7 +52,6 @@ const createUploader = (folder) => {
   });
 };
 
-
 const uploadSingle = (fieldName, type = 'avatars') => {
   const upload = createUploader(type);
   return (req, res, next) => {
@@ -104,4 +103,34 @@ const uploadMultiple = (fieldName, maxCount = 10, type = 'shop') => {
       next();
     });
   };
+};
+
+// Xóa ảnh trên Cloudinary bằng URL
+const deleteFile = async (fileUrl) => {
+  if (!fileUrl) return;
+
+  try {
+    // Lấy public_id từ URL Cloudinary
+    // URL dạng: https://res.cloudinary.com/xxx/image/upload/v123/barberly/avatars/abc.jpg
+    const urlParts = fileUrl.split('/');
+    const uploadIndex = urlParts.indexOf('upload');
+    if (uploadIndex === -1) return;
+
+    // Lấy phần sau 'upload/vXXX/' và bỏ extension
+    const pathAfterUpload = urlParts.slice(uploadIndex + 2).join('/');
+    const publicId = pathAfterUpload.replace(/\.[^/.]+$/, '');
+
+    if (publicId) {
+      await cloudinary.uploader.destroy(publicId);
+    }
+  } catch (error) {
+    console.error('Error deleting file from Cloudinary:', error.message);
+  }
+};
+
+module.exports = {
+  uploadSingle,
+  uploadMultiple,
+  deleteFile,
+  cloudinary
 };
