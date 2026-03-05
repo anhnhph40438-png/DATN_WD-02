@@ -53,7 +53,6 @@ const protect = async (req, res, next) => {
   }
 };
 
-
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -71,3 +70,5 @@ const authorize = (...roles) => {
     next();
   };
 };
+
+module.exports = { protect, authorize };
