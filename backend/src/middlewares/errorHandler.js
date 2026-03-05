@@ -36,3 +36,21 @@ const sendErrorDev = (err, res) => {
     stack: err.stack
   });
 };
+
+const sendErrorProd = (err, res) => {
+  if (err.isOperational) {
+    res.status(err.statusCode).json({
+      success: false,
+      status: err.status,
+      message: err.message
+    });
+  } else {
+    console.error('ERROR:', err);
+
+    res.status(500).json({
+      success: false,
+      status: 'error',
+      message: 'Something went wrong. Please try again later.'
+    });
+  }
+};
