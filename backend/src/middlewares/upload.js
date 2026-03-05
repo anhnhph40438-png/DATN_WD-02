@@ -17,3 +17,17 @@ cloudinary.config({
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+const fileFilter = (req, file, cb) => {
+  if (ALLOWED_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(
+      new AppError(
+        'Invalid file type. Only JPEG, JPG, PNG, GIF, and WEBP images are allowed.',
+        400
+      ),
+      false
+    );
+  }
+};
