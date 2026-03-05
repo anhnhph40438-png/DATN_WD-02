@@ -43,3 +43,11 @@ const createCloudinaryStorage = (folder) => {
     }
   });
 };
+
+const createUploader = (folder) => {
+  return multer({
+    storage: createCloudinaryStorage(folder),
+    limits: { fileSize: MAX_FILE_SIZE },
+    fileFilter
+  });
+};
