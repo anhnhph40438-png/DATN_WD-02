@@ -51,3 +51,28 @@ const createUploader = (folder) => {
     fileFilter
   });
 };
+
+
+const uploadSingle = (fieldName, type = 'avatars') => {
+  const upload = createUploader(type);
+  return (req, res, next) => {
+    upload.single(fieldName)(req, res, (err) => {
+      if (err) {
+        if (err instanceof multer.MulterError) {
+          if (err.code === 'LIMIT_FILE_SIZE') {
+            return next(new AppError('File size too large. Maximum size is 5MB.', 400));
+          }
+          return next(new AppError(`Upload error: ${err.message}`, 400));
+        }
+        return next(err);
+      }
+
+      if (req.file) {
+        // Cloudinary trả về URL trong req.file.path
+        req.file.url = req.file.path;
+      }
+
+      next();
+    });
+  };
+};
