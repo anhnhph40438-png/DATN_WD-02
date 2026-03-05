@@ -76,3 +76,32 @@ const uploadSingle = (fieldName, type = 'avatars') => {
     });
   };
 };
+
+const uploadMultiple = (fieldName, maxCount = 10, type = 'shop') => {
+  const upload = createUploader(type);
+  return (req, res, next) => {
+    upload.array(fieldName, maxCount)(req, res, (err) => {
+      if (err) {
+        if (err instanceof multer.MulterError) {
+          if (err.code === 'LIMIT_FILE_SIZE') {
+            return next(new AppError('File size too large. Maximum size is 5MB.', 400));
+          }
+          if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+            return next(new AppError(`Too many files. Maximum is ${maxCount}.`, 400));
+          }
+          return next(new AppError(`Upload error: ${err.message}`, 400));
+        }
+        return next(err);
+      }
+
+      if (req.files && req.files.length > 0) {
+        req.files = req.files.map((file) => ({
+          ...file,
+          url: file.path
+        }));
+      }
+
+      next();
+    });
+  };
+};
