@@ -1,0 +1,11 @@
+export { default as api } from './api';
+export { default as authService } from './authService';
+export { default as shopService } from './shopService';
+export { default as serviceService } from './serviceService';
+export { default as barberService } from './barberService';
+export { default as appointmentService } from './appointmentService';
+export { default as paymentService } from './paymentService';
+export { default as promotionService } from './promotionService';
+export { default as adminService } from './adminService';
+export { default as userService } from './userService';
+export { default as statisticsService } from './statisticsService';
