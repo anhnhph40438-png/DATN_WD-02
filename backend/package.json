@@ -1,7 +1,7 @@
 {
-  "name": "barberly-backend",
+  "name": "haircut-backend",
   "version": "1.0.0",
-  "description": "Backend API for Barberly - Hair Salon Booking Application",
+  "description": "Backend API for Haircut - Hair Salon Booking Application",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
