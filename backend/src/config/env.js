@@ -33,7 +33,11 @@ module.exports = {
   VNPAY_TMN_CODE: process.env.VNPAY_TMN_CODE || '',
   VNPAY_HASH_SECRET: process.env.VNPAY_HASH_SECRET || '',
   VNPAY_URL: process.env.VNPAY_URL || 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
-  VNPAY_RETURN_URL: process.env.VNPAY_RETURN_URL || 'http://localhost:3000/payment/vnpay-return',
+  VNPAY_RETURN_URL: process.env.VNPAY_RETURN_URL || 'http://localhost:5000/api/payments/vnpay-return',
 
-  CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:3000'
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
+
+  CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173'
 };
