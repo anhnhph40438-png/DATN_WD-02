@@ -44,7 +44,7 @@ const Header = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3">
             <div className="flex flex-col">
-              <span className="text-2xl font-display font-bold text-dark-900">Barberly</span>
+              <span className="text-2xl font-display font-bold text-dark-900">Haircut</span>
               <div className="h-0.5 w-12 bg-primary-500"></div>
             </div>
           </Link>

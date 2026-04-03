@@ -46,7 +46,10 @@ const Sidebar = ({ role, isOpen, onClose }) => {
     { to: '/barber/profile', icon: FiUser, label: 'Hồ sơ' },
   ];
 
-  const links = role === 'admin' ? adminLinks : barberLinks;
+  // Both admin and barber get all links combined
+  const links = role === 'admin'
+    ? [...adminLinks]
+    : [...barberLinks];
   const roleLabel = role === 'admin' ? 'Quản trị viên' : 'Thợ cắt tóc';
 
   const NavItem = ({ to, icon: Icon, label, end }) => (
@@ -80,7 +83,7 @@ const Sidebar = ({ role, isOpen, onClose }) => {
           <div className="flex items-center justify-between px-4 py-5 border-b border-dark-900">
             <div className="flex items-center space-x-3">
               <div className="flex flex-col">
-                <span className="text-xl font-display font-bold text-white">Barberly</span>
+                <span className="text-xl font-display font-bold text-white">Haircut</span>
                 <div className="h-0.5 w-12 bg-primary-500 mt-0.5"></div>
               </div>
             </div>

@@ -25,7 +25,7 @@ const Footer = () => {
           <div className="space-y-4">
             <Link to="/" className="inline-block">
               <div className="flex flex-col">
-                <span className="text-2xl font-display font-bold text-white">Barberly</span>
+                <span className="text-2xl font-display font-bold text-white">Haircut</span>
                 <div className="h-0.5 w-16 bg-primary-500 mt-1"></div>
               </div>
             </Link>
@@ -91,10 +91,10 @@ const Footer = () => {
               <li className="flex items-center space-x-3">
                 <FiMail className="w-5 h-5 text-primary-500 flex-shrink-0" />
                 <a
-                  href="mailto:info@barberly.com"
+                  href="mailto:info@haircut.com"
                   className="text-sm text-gray-400 hover:text-primary-500 transition-colors"
                 >
-                  info@barberly.com
+                  info@haircut.com
                 </a>
               </li>
             </ul>
@@ -127,7 +127,7 @@ const Footer = () => {
         <div className="mt-12 pt-8 border-t border-gray-800">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <p className="text-sm text-gray-500">
-              &copy; {currentYear} Barberly. Tất cả quyền được bảo lưu.
+              &copy; {currentYear} Haircut. Tất cả quyền được bảo lưu.
             </p>
             <div className="flex space-x-6">
               <Link to="#" className="text-sm text-gray-500 hover:text-primary-500 transition-colors">
