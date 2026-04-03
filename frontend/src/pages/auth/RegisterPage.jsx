@@ -119,7 +119,7 @@ const RegisterPage = () => {
             <div className="w-16 h-16 bg-primary-500 rounded-lg flex items-center justify-center">
               <span className="text-dark-950 font-bold text-3xl font-display">B</span>
             </div>
-            <span className="text-2xl font-display font-bold text-white">Barberly</span>
+            <span className="text-2xl font-display font-bold text-white">Haircut</span>
           </Link>
 
           <h2 className="text-5xl font-display font-bold text-white mb-6 leading-tight">
@@ -150,7 +150,7 @@ const RegisterPage = () => {
               <div className="w-14 h-14 bg-dark-950 rounded-lg flex items-center justify-center">
                 <span className="text-primary-500 font-bold text-2xl font-display">B</span>
               </div>
-              <span className="text-2xl font-display font-bold text-dark-950">Barberly</span>
+              <span className="text-2xl font-display font-bold text-dark-950">Haircut</span>
             </Link>
           </div>
 
