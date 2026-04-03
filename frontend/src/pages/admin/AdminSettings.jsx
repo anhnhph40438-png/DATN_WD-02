@@ -99,10 +99,10 @@ const AdminSettings = () => {
 
   const setMockData = () => {
     setShopInfo({
-      name: 'Barberly',
+      name: 'Haircut',
       address: '123 Nguyễn Huệ, Quận 1, TP.HCM',
       phone: '0901234567',
-      email: 'contact@barberly.vn',
+      email: 'contact@haircut.vn',
       description: 'Tiệm cắt tóc nam cao cấp với đội ngũ barber chuyên nghiệp.',
       images: [
         '/uploads/shop/shop1.jpg',
@@ -114,7 +114,7 @@ const AdminSettings = () => {
       hashSecret: '********',
     });
     setEmailSettings({
-      fromEmail: 'noreply@barberly.vn',
+      fromEmail: 'noreply@haircut.vn',
       smtpHost: 'smtp.gmail.com',
     });
   };

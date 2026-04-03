@@ -14,7 +14,10 @@ import {
   FiAlertCircle,
   FiXCircle,
   FiPhone,
-  FiMail
+  FiMail,
+  FiCheck,
+  FiPlay,
+  FiCheckCircle
 } from 'react-icons/fi';
 import { adminService, barberService } from '../../services';
 import { formatDate, formatTime, formatCurrency, formatPhoneNumber } from '../../utils/formatters';
@@ -73,7 +76,15 @@ const AdminAppointments = () => {
       };
       const response = await adminService.getAllAppointments(params);
       const data = response.data || response;
-      setAppointments(data.appointments || []);
+      const rawAppointments = data.appointments || [];
+      // Sắp xếp: pending lên đầu tiên
+      const statusOrder = { pending: 0, confirmed: 1, 'in-progress': 2, completed: 3, cancelled: 4 };
+      const sorted = [...rawAppointments].sort((a, b) => {
+        const orderDiff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5);
+        if (orderDiff !== 0) return orderDiff;
+        return new Date(b.date) - new Date(a.date);
+      });
+      setAppointments(sorted);
       setTotalPages(data.pagination?.totalPages || Math.ceil((data.pagination?.total || 0) / itemsPerPage));
       setTotalAppointments(data.pagination?.total || data.appointments?.length || 0);
     } catch (err) {
@@ -111,7 +122,7 @@ const AdminAppointments = () => {
       services: [{ name: 'Nhuộm tóc', price: 200000 }],
       totalPrice: 200000,
       status: 'confirmed',
-      paymentStatus: 'pending',
+      paymentStatus: 'unpaid',
       paymentMethod: 'cash',
       notes: '',
       createdAt: new Date('2024-06-12'),
@@ -125,7 +136,7 @@ const AdminAppointments = () => {
       services: [{ name: 'Cắt tóc nam', price: 100000 }],
       totalPrice: 100000,
       status: 'pending',
-      paymentStatus: 'pending',
+      paymentStatus: 'unpaid',
       paymentMethod: 'cash',
       notes: '',
       createdAt: new Date('2024-06-14'),
@@ -173,6 +184,72 @@ const AdminAppointments = () => {
     }
   };
 
+  const handleConfirmAppointment = async (appointment) => {
+    try {
+      setActionLoading(true);
+      await adminService.confirmAppointment(appointment._id);
+      setAppointments(appointments.map(a =>
+        a._id === appointment._id ? { ...a, status: 'confirmed' } : a
+      ));
+    } catch (err) {
+      console.error('Error confirming appointment:', err);
+      alert('Không thể xác nhận lịch hẹn');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleStartAppointment = async (appointment) => {
+    try {
+      setActionLoading(true);
+      await adminService.startAppointment(appointment._id);
+      setAppointments(appointments.map(a =>
+        a._id === appointment._id ? { ...a, status: 'in-progress' } : a
+      ));
+    } catch (err) {
+      console.error('Error starting appointment:', err);
+      alert('Không thể xác nhận khách đến');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCompleteAppointment = async (appointment) => {
+    try {
+      setActionLoading(true);
+      await adminService.completeAppointment(appointment._id);
+      setAppointments(appointments.map(a =>
+        a._id === appointment._id ? { ...a, status: 'completed', paymentStatus: 'paid' } : a
+      ));
+    } catch (err) {
+      console.error('Error completing appointment:', err);
+      alert('Không thể xác nhận khách đi');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectAppointment = async () => {
+    if (!appointmentToCancel || !cancelReason.trim()) return;
+    try {
+      setActionLoading(true);
+      await adminService.rejectAppointment(appointmentToCancel._id, cancelReason);
+      setAppointments(appointments.map(a =>
+        a._id === appointmentToCancel._id
+          ? { ...a, status: 'cancelled', cancelReason }
+          : a
+      ));
+      setShowCancelModal(false);
+      setAppointmentToCancel(null);
+      setCancelReason('');
+    } catch (err) {
+      console.error('Error rejecting appointment:', err);
+      alert('Không thể từ chối lịch hẹn');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleViewAppointment = (appointment) => {
     setSelectedAppointment(appointment);
     setShowViewModal(true);
@@ -202,7 +279,7 @@ const AdminAppointments = () => {
 
   const getPaymentBadge = (status) => {
     const paymentColors = {
-      pending: 'bg-primary-100 text-primary-700',
+      unpaid: 'bg-primary-100 text-primary-700',
       paid: 'bg-green-100 text-green-700',
       refunded: 'bg-dark-100 text-dark-600',
       failed: 'bg-red-100 text-red-700',
@@ -212,7 +289,7 @@ const AdminAppointments = () => {
 
   const getPaymentText = (status) => {
     const paymentTexts = {
-      pending: 'Chưa thanh toán',
+      unpaid: 'Chưa thanh toán',
       paid: 'Đã thanh toán',
       refunded: 'Đã hoàn tiền',
       failed: 'Thất bại',
@@ -372,7 +449,7 @@ const AdminAppointments = () => {
                         <div className="text-sm text-dark-900">
                           {formatDate(appointment.date, { year: 'numeric', month: '2-digit', day: '2-digit' })}
                         </div>
-                        <div className="text-sm text-dark-500">{appointment.time}</div>
+                        <div className="text-sm text-dark-500">{appointment.startTime} - {appointment.endTime}</div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-dark-900">
@@ -380,9 +457,20 @@ const AdminAppointments = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-dark-900">
-                          {formatCurrency(appointment.totalPrice || 0)}
-                        </div>
+                        {appointment.discount > 0 ? (
+                          <div>
+                            <div className="text-xs line-through text-dark-400">
+                              {formatCurrency(appointment.totalPrice || 0)}
+                            </div>
+                            <div className="text-sm font-medium text-primary-600">
+                              {formatCurrency(appointment.finalPrice || 0)}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm font-medium text-dark-900">
+                            {formatCurrency(appointment.totalPrice || 0)}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(appointment.status)}`}>
@@ -403,13 +491,53 @@ const AdminAppointments = () => {
                           >
                             <FiEye className="w-4 h-4" />
                           </button>
-                          {(appointment.status === 'pending' || appointment.status === 'confirmed') && (
+                          {appointment.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleConfirmAppointment(appointment)}
+                                disabled={actionLoading}
+                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                title="Xác nhận"
+                              >
+                                <FiCheck className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => { setAppointmentToCancel(appointment); setShowCancelModal(true); }}
+                                disabled={actionLoading}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Từ chối"
+                              >
+                                <FiXCircle className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          {appointment.status === 'confirmed' && (
+                            <>
+                              <button
+                                onClick={() => handleStartAppointment(appointment)}
+                                disabled={actionLoading}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Xác nhận khách đến"
+                              >
+                                <FiPlay className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => { setAppointmentToCancel(appointment); setShowCancelModal(true); }}
+                                className="p-2 text-dark-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Hủy lịch hẹn"
+                              >
+                                <FiXCircle className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          {appointment.status === 'in-progress' && (
                             <button
-                              onClick={() => { setAppointmentToCancel(appointment); setShowCancelModal(true); }}
-                              className="p-2 text-dark-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Hủy lịch hẹn"
+                              onClick={() => handleCompleteAppointment(appointment)}
+                              disabled={actionLoading}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Xác nhận khách đi (hoàn thành + đã thanh toán)"
                             >
-                              <FiXCircle className="w-4 h-4" />
+                              <FiCheckCircle className="w-4 h-4" />
                             </button>
                           )}
                         </div>
@@ -530,7 +658,7 @@ const AdminAppointments = () => {
                   </p>
                   <p className="flex items-center">
                     <FiClock className="mr-2 text-dark-400" />
-                    {selectedAppointment.time}
+                    {selectedAppointment.startTime} - {selectedAppointment.endTime}
                   </p>
                   <p>
                     <span className="text-dark-500">Ngày đặt:</span>{' '}
@@ -544,7 +672,17 @@ const AdminAppointments = () => {
                   <FiDollarSign className="mr-2" /> Thanh toán
                 </h4>
                 <div className="space-y-2 text-sm">
-                  <p><span className="text-dark-500">Tổng tiền:</span> <span className="font-medium">{formatCurrency(selectedAppointment.totalPrice)}</span></p>
+                  <p>
+                    <span className="text-dark-500">Tổng tiền:</span>{' '}
+                    {selectedAppointment.discount > 0 ? (
+                      <>
+                        <span className="line-through text-dark-400 mr-2">{formatCurrency(selectedAppointment.totalPrice)}</span>
+                        <span className="font-medium text-primary-600">{formatCurrency(selectedAppointment.finalPrice)}</span>
+                      </>
+                    ) : (
+                      <span className="font-medium">{formatCurrency(selectedAppointment.totalPrice)}</span>
+                    )}
+                  </p>
                   <p>
                     <span className="text-dark-500">Phương thức:</span>{' '}
                     {selectedAppointment.paymentMethod === 'vnpay' ? 'VNPay' : 'Tiền mặt'}
@@ -568,9 +706,15 @@ const AdminAppointments = () => {
                     <span className="font-medium">{formatCurrency(service.price)}</span>
                   </div>
                 ))}
-                <div className="border-t border-dark-200 pt-2 mt-2 flex justify-between font-medium">
+                {selectedAppointment.discount > 0 && (
+                  <div className="border-t border-dark-200 pt-2 mt-2 flex justify-between text-sm text-dark-500">
+                    <span>Giảm giá ({selectedAppointment.promoCode})</span>
+                    <span>-{formatCurrency(selectedAppointment.discount)}</span>
+                  </div>
+                )}
+                <div className={`${selectedAppointment.discount > 0 ? '' : 'border-t border-dark-200 pt-2 mt-2'} flex justify-between font-medium`}>
                   <span>Tổng cộng</span>
-                  <span>{formatCurrency(selectedAppointment.totalPrice)}</span>
+                  <span>{formatCurrency(selectedAppointment.discount > 0 ? selectedAppointment.finalPrice : selectedAppointment.totalPrice)}</span>
                 </div>
               </div>
             </div>

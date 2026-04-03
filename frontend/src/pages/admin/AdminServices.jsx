@@ -173,6 +173,11 @@ const AdminServices = () => {
         duration: Number(formData.duration)
       };
 
+      // Include image file if selected
+      if (formData.image) {
+        data.image = formData.image;
+      }
+
       if (!editingService) {
         const createResponse = await adminService.createService(data);
         const newService = createResponse.data?.service || createResponse;

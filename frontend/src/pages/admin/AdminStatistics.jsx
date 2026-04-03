@@ -54,17 +54,19 @@ const AdminStatistics = () => {
         params.endDate = customEndDate;
       }
 
-      const [revenueRes, appointmentRes, customerRes, barberRes] = await Promise.all([
+      const [revenueRes, appointmentRes, customerRes, barberRes, serviceRes] = await Promise.all([
         statisticsService.getRevenueStats(params).catch(() => null),
         statisticsService.getAppointmentStats(params).catch(() => null),
         statisticsService.getCustomerStats(params).catch(() => null),
         statisticsService.getBarberStats(params).catch(() => null),
+        statisticsService.getServiceStats(params).catch(() => null),
       ]);
 
       const revData = revenueRes?.data || revenueRes;
       const appointmentData = appointmentRes?.data || appointmentRes;
       const customerData = customerRes?.data || customerRes;
       const barberData = barberRes?.data || barberRes;
+      const serviceData = serviceRes?.data || serviceRes;
 
       if (revData) {
         setOverview(prev => ({
@@ -132,6 +134,17 @@ const AdminStatistics = () => {
         });
       }
 
+      if (serviceData && serviceData.services && serviceData.services.length > 0) {
+        setTopServices(serviceData.services.map(s => ({
+          name: s.name,
+          count: s.count,
+          revenue: s.revenue,
+          category: s.category,
+        })));
+      } else {
+        setTopServices(getMockTopServices());
+      }
+
       if (barberData) {
         const normalizedBarbers = (barberData.barbers || []).map(b => ({
           name: b.barber?.user?.name || b.name || 'N/A',
@@ -140,7 +153,6 @@ const AdminStatistics = () => {
           rating: b.averageRating || b.barber?.rating || b.rating || 0,
         }));
         setTopBarbers(normalizedBarbers.length > 0 ? normalizedBarbers : getMockTopBarbers());
-        setTopServices(barberData.topServices || getMockTopServices());
         setOverview(prev => ({
           ...prev,
           avgRating: barberData.avgRating || 4.5,
