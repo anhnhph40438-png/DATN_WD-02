@@ -171,7 +171,7 @@ router.put(
 router.delete(
   '/:id',
   protect,
-  authorize('customer', 'admin'),
+  authorize('customer', 'admin', 'barber'),
   reviewIdValidation,
   validate,
   deleteReview

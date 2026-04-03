@@ -210,7 +210,7 @@ router.get(
 // Admin routes
 router.post(
   '/',
-  authorize('admin'),
+  authorize('admin', 'barber'),
   createPromotionValidation,
   validate,
   createPromotion
@@ -218,7 +218,7 @@ router.post(
 
 router.get(
   '/',
-  authorize('admin'),
+  authorize('admin', 'barber'),
   getPromotionsValidation,
   validate,
   getPromotions
@@ -226,7 +226,7 @@ router.get(
 
 router.get(
   '/:id',
-  authorize('admin'),
+  authorize('admin', 'barber'),
   promotionIdValidation,
   validate,
   getPromotionById
@@ -234,7 +234,7 @@ router.get(
 
 router.put(
   '/:id',
-  authorize('admin'),
+  authorize('admin', 'barber'),
   updatePromotionValidation,
   validate,
   updatePromotion
@@ -242,7 +242,7 @@ router.put(
 
 router.delete(
   '/:id',
-  authorize('admin'),
+  authorize('admin', 'barber'),
   promotionIdValidation,
   validate,
   deletePromotion
@@ -250,7 +250,7 @@ router.delete(
 
 router.patch(
   '/:id/status',
-  authorize('admin'),
+  authorize('admin', 'barber'),
   promotionIdValidation,
   validate,
   togglePromotionStatus

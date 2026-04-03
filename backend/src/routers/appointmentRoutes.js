@@ -149,10 +149,10 @@ router.get(
   getAppointmentById
 );
 
-// Barber routes - status transitions
+// Admin/Barber routes - status transitions
 router.patch(
   '/:id/confirm',
-  authorize('barber'),
+  authorize('admin', 'barber'),
   appointmentIdValidation,
   validate,
   confirmAppointment
@@ -160,7 +160,7 @@ router.patch(
 
 router.patch(
   '/:id/reject',
-  authorize('barber'),
+  authorize('admin', 'barber'),
   rejectAppointmentValidation,
   validate,
   rejectAppointment
@@ -168,7 +168,7 @@ router.patch(
 
 router.patch(
   '/:id/start',
-  authorize('barber'),
+  authorize('admin', 'barber'),
   appointmentIdValidation,
   validate,
   startAppointment
@@ -176,7 +176,7 @@ router.patch(
 
 router.patch(
   '/:id/complete',
-  authorize('barber'),
+  authorize('admin', 'barber'),
   appointmentIdValidation,
   validate,
   completeAppointment
@@ -185,7 +185,7 @@ router.patch(
 // Customer/Admin routes
 router.patch(
   '/:id/cancel',
-  authorize('customer', 'admin'),
+  authorize('customer', 'admin', 'barber'),
   cancelAppointmentValidation,
   validate,
   cancelAppointment

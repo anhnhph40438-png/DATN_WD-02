@@ -10,19 +10,19 @@ const Review = require('../models/Review');
 const Transaction = require('../models/Transaction');
 const Promotion = require('../models/Promotion');
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/barberly';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/haircut';
 
 // ============================================================
 // DATA TIẾNG VIỆT CÓ Ý NGHĨA
 // ============================================================
 
 const shopData = {
-  name: 'Barberly - Tiệm cắt tóc nam',
+  name: 'Haircut - Tiệm cắt tóc nam',
   address: '54 Nguyễn Lương Bằng, Hoà Khánh Bắc, Liên Chiểu, Đà Nẵng',
   phone: '0236 3846 999',
-  email: 'contact@barberly.vn',
+  email: 'contact@haircut.vn',
   description:
-    'Barberly là tiệm cắt tóc nam chuyên nghiệp tại Đà Nẵng. Với đội ngũ thợ lành nghề, không gian hiện đại và phong cách phục vụ tận tâm, chúng tôi cam kết mang đến cho bạn trải nghiệm cắt tóc tốt nhất.',
+    'Haircut là tiệm cắt tóc nam chuyên nghiệp tại Đà Nẵng. Với đội ngũ thợ lành nghề, không gian hiện đại và phong cách phục vụ tận tâm, chúng tôi cam kết mang đến cho bạn trải nghiệm cắt tóc tốt nhất.',
   openingHours: {
     monday: { open: '08:00', close: '20:00', isClosed: false },
     tuesday: { open: '08:00', close: '20:00', isClosed: false },
@@ -36,7 +36,7 @@ const shopData = {
 
 const adminData = {
   name: 'Nguyễn Quản Trị',
-  email: 'admin@barberly.vn',
+  email: 'admin@haircut.vn',
   phone: '0901000001',
   password: 'admin123',
   role: 'admin'
@@ -129,7 +129,7 @@ const barbersData = [
   {
     user: {
       name: 'Trần Minh Đức',
-      email: 'duc.tran@barberly.vn',
+      email: 'duc.tran@haircut.vn',
       phone: '0901000010',
       password: 'barber123',
       role: 'barber'
@@ -151,7 +151,7 @@ const barbersData = [
   {
     user: {
       name: 'Lê Văn Hoàng',
-      email: 'hoang.le@barberly.vn',
+      email: 'hoang.le@haircut.vn',
       phone: '0901000020',
       password: 'barber123',
       role: 'barber'
@@ -173,7 +173,7 @@ const barbersData = [
   {
     user: {
       name: 'Phạm Quốc Bảo',
-      email: 'bao.pham@barberly.vn',
+      email: 'bao.pham@haircut.vn',
       phone: '0901000030',
       password: 'barber123',
       role: 'barber'
@@ -569,10 +569,10 @@ const seedDatabase = async () => {
     console.log('========================================');
     console.log('\n  Tài khoản đăng nhập:');
     console.log('  ─────────────────────────────────────');
-    console.log(`  Admin:      admin@barberly.vn / admin123`);
-    console.log(`  Thợ cắt:    duc.tran@barberly.vn / barber123`);
-    console.log(`  Thợ cắt:    hoang.le@barberly.vn / barber123`);
-    console.log(`  Thợ cắt:    bao.pham@barberly.vn / barber123`);
+    console.log(`  Admin:      admin@haircut.vn / admin123`);
+    console.log(`  Thợ cắt:    duc.tran@haircut.vn / barber123`);
+    console.log(`  Thợ cắt:    hoang.le@haircut.vn / barber123`);
+    console.log(`  Thợ cắt:    bao.pham@haircut.vn / barber123`);
     console.log(`  Khách hàng: tung.nguyen@gmail.com / customer123`);
     console.log('  ─────────────────────────────────────');
     console.log('\n  Mã khuyến mãi:');

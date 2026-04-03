@@ -4,6 +4,7 @@ const {
   getAvailableBarbers,
   getAllBarbers,
   getBarberById,
+  getMyBarberProfile,
   createBarber,
   updateBarber,
   updateWorkingHours,
@@ -103,11 +104,19 @@ const availableSlotsValidation = [
 // Public routes
 router.get('/', getAvailableBarbers);
 
+// Barber's own profile - must be before /:id
+router.get(
+  '/me',
+  protect,
+  authorize('barber'),
+  getMyBarberProfile
+);
+
 // Admin only route - must be before /:id to avoid matching 'all' as an ID
 router.get(
   '/all',
   protect,
-  authorize('admin'),
+  authorize('admin', 'barber'),
   getAllBarbers
 );
 
@@ -128,7 +137,7 @@ router.get(
 router.post(
   '/',
   protect,
-  authorize('admin'),
+  authorize('admin', 'barber'),
   createBarberValidation,
   validate,
   createBarber
@@ -137,7 +146,7 @@ router.post(
 router.patch(
   '/:id/status',
   protect,
-  authorize('admin'),
+  authorize('admin', 'barber'),
   barberIdValidation,
   validate,
   toggleBarberStatus
@@ -146,7 +155,7 @@ router.patch(
 router.delete(
   '/:id',
   protect,
-  authorize('admin'),
+  authorize('admin', 'barber'),
   barberIdValidation,
   validate,
   deleteBarber

@@ -76,7 +76,7 @@ const updateUserValidation = [
 // Admin only routes
 router.get(
   '/',
-  authorize('admin'),
+  authorize('admin', 'barber'),
   getUsersValidation,
   validate,
   getAllUsers
@@ -84,7 +84,7 @@ router.get(
 
 router.get(
   '/:id',
-  authorize('admin'),
+  authorize('admin', 'barber'),
   userIdValidation,
   validate,
   getUserById
@@ -92,7 +92,7 @@ router.get(
 
 router.put(
   '/:id',
-  authorize('admin'),
+  authorize('admin', 'barber'),
   updateUserValidation,
   validate,
   updateUser
@@ -100,7 +100,7 @@ router.put(
 
 router.patch(
   '/:id/status',
-  authorize('admin'),
+  authorize('admin', 'barber'),
   userIdValidation,
   validate,
   toggleUserStatus
@@ -108,7 +108,7 @@ router.patch(
 
 router.delete(
   '/:id',
-  authorize('admin'),
+  authorize('admin', 'barber'),
   userIdValidation,
   validate,
   deleteUser
