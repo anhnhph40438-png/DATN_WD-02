@@ -55,8 +55,6 @@ const transactionSchema = new mongoose.Schema(
   }
 );
 
-transactionSchema.index({ vnpTxnRef: 1 });
-
 const Transaction = mongoose.model('Transaction', transactionSchema);
 
 module.exports = Transaction;

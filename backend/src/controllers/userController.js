@@ -18,10 +18,11 @@ const getAllUsers = async (req, res, next) => {
     const query = {};
 
     if (search) {
+      const safeSearch = escapeRegex(search);
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } }
+        { name: { $regex: safeSearch, $options: 'i' } },
+        { email: { $regex: safeSearch, $options: 'i' } },
+        { phone: { $regex: safeSearch, $options: 'i' } }
       ];
     }
 
@@ -171,7 +172,6 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
-
 const uploadAvatar = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -187,7 +187,7 @@ const uploadAvatar = async (req, res, next) => {
       return next(new AppError('User not found', 404));
     }
 
-    if (req.user.role !== 'admin' && req.user._id.toString() !== id) {
+    if (!['admin', 'barber'].includes(req.user.role) && req.user._id.toString() !== id) {
       await deleteFile(req.file.url);
       return next(new AppError('You do not have permission to update this avatar', 403));
     }
@@ -209,7 +209,6 @@ const uploadAvatar = async (req, res, next) => {
     next(error);
   }
 };
-
 
 module.exports = {
   getAllUsers,

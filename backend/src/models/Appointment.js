@@ -76,6 +76,16 @@ const appointmentSchema = new mongoose.Schema(
     },
     cancelReason: {
       type: String
+    },
+    promoCode: {
+      type: String
+    },
+    discount: {
+      type: Number,
+      default: 0
+    },
+    finalPrice: {
+      type: Number
     }
   },
   {
