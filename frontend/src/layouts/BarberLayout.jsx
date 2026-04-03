@@ -20,7 +20,7 @@ const BarberLayout = () => {
 
       {/* Sidebar */}
       <Sidebar
-        role="barber"
+        role={user?.role || 'barber'}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -65,7 +65,7 @@ const BarberLayout = () => {
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-sm font-medium text-dark-900">{user?.name || 'Barber'}</p>
-                  <p className="text-xs text-dark-900/60">Thợ cắt tóc</p>
+                  <p className="text-xs text-dark-900/60">{user?.role === 'admin' ? 'Quản trị viên' : 'Thợ cắt tóc'}</p>
                 </div>
               </div>
             </div>

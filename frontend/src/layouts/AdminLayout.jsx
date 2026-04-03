@@ -20,7 +20,7 @@ const AdminLayout = () => {
 
       {/* Sidebar */}
       <Sidebar
-        role="admin"
+        role={user?.role || 'admin'}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -65,7 +65,7 @@ const AdminLayout = () => {
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-sm font-medium text-dark-900">{user?.name || 'Admin'}</p>
-                  <p className="text-xs text-dark-900/60">Quản trị viên</p>
+                  <p className="text-xs text-dark-900/60">{user?.role === 'barber' ? 'Thợ cắt tóc' : 'Quản trị viên'}</p>
                 </div>
               </div>
             </div>
