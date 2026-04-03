@@ -549,12 +549,7 @@ const getBarberPersonalStats = async (req, res, next) => {
         return next(new AppError('Barber not found', 404));
       }
 
-      if (req.user.role === 'barber') {
-        const userBarber = await Barber.findOne({ user: req.user._id });
-        if (!userBarber || userBarber._id.toString() !== id) {
-          return next(new AppError('You can only view your own statistics', 403));
-        }
-      }
+      // admin and barber can view any barber's statistics
     } else {
       barber = await Barber.findOne({ user: req.user._id }).populate(
         'user',
@@ -690,11 +685,76 @@ const getBarberPersonalStats = async (req, res, next) => {
   }
 };
 
+const getServiceStats = async (req, res, next) => {
+  try {
+    const { period = 'month', startDate, endDate } = req.query;
+    const { start, end } = getDateRange(period, startDate, endDate);
+
+    const Service = require('../models/Service');
+
+    const serviceStats = await Appointment.aggregate([
+      {
+        $match: {
+          date: { $gte: start, $lte: end },
+          status: { $in: ['completed', 'confirmed', 'in-progress'] }
+        }
+      },
+      { $unwind: '$services' },
+      {
+        $group: {
+          _id: '$services',
+          count: { $sum: 1 },
+          revenue: { $sum: '$totalPrice' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'services',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'serviceInfo'
+        }
+      },
+      { $unwind: '$serviceInfo' },
+      {
+        $project: {
+          name: '$serviceInfo.name',
+          category: '$serviceInfo.category',
+          price: '$serviceInfo.price',
+          count: 1,
+          revenue: { $multiply: ['$serviceInfo.price', '$count'] }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    const totalServiceUsage = serviceStats.reduce((sum, s) => sum + s.count, 0);
+    const totalServiceRevenue = serviceStats.reduce((sum, s) => sum + s.revenue, 0);
+
+    sendResponse(
+      res,
+      200,
+      {
+        services: serviceStats,
+        totalUsage: totalServiceUsage,
+        totalRevenue: totalServiceRevenue,
+        period,
+        startDate: start,
+        endDate: end
+      },
+      'Service statistics retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getRevenueStats,
   getAppointmentStats,
   getCustomerStats,
   getBarberStats,
-  getBarberPersonalStats
+  getBarberPersonalStats,
+  getServiceStats
 };

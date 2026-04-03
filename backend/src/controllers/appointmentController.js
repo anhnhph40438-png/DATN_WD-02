@@ -1,8 +1,10 @@
 const Appointment = require('../models/Appointment');
 const Barber = require('../models/Barber');
+const Review = require('../models/Review');
 const Service = require('../models/Service');
 const Shop = require('../models/Shop');
 const User = require('../models/User');
+const Promotion = require('../models/Promotion');
 const AppError = require('../utils/AppError');
 const sendResponse = require('../utils/sendResponse');
 const { sendAppointmentConfirmation } = require('../services/emailService');
@@ -42,7 +44,7 @@ const getDefaultShop = async () => {
 
 const createAppointment = async (req, res, next) => {
   try {
-    const { barberId, serviceIds, date, startTime, notes } = req.body;
+    const { barberId, serviceIds, date, startTime, notes, promoCode } = req.body;
     const customerId = req.user._id;
 
     const barber = await Barber.findById(barberId).populate('user', 'name');
@@ -62,6 +64,12 @@ const createAppointment = async (req, res, next) => {
       return next(new AppError('One or more services are invalid or inactive', 400));
     }
 
+    // Giới hạn: mỗi lần đặt chỉ được chọn tối đa 1 combo
+    const comboCount = services.filter(s => s.category === 'combo').length;
+    if (comboCount > 1) {
+      return next(new AppError('Mỗi lần đặt lịch chỉ được chọn tối đa 1 combo', 400));
+    }
+
     const totalDuration = services.reduce((sum, service) => sum + service.duration, 0);
 
     const endTime = addMinutesToTime(startTime, totalDuration);
@@ -69,6 +77,14 @@ const createAppointment = async (req, res, next) => {
     const totalPrice = services.reduce((sum, service) => sum + service.price, 0);
 
     const appointmentDate = new Date(date);
+
+    // Validate: không cho đặt lịch ngày quá khứ
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (appointmentDate < today) {
+      return next(new AppError('Cannot book an appointment in the past', 400));
+    }
+
     const dayName = getDayName(appointmentDate);
     const workingDay = barber.workingHours[dayName];
 
@@ -115,6 +131,28 @@ const createAppointment = async (req, res, next) => {
 
     const shop = await getDefaultShop();
 
+    // Xử lý mã khuyến mãi
+    let discount = 0;
+    let finalPrice = totalPrice;
+    let appliedPromoCode = undefined;
+
+    if (promoCode) {
+      const promotion = await Promotion.findOne({ code: promoCode.toUpperCase() });
+      if (promotion) {
+        const validity = promotion.isValid();
+        if (validity.valid) {
+          const discountResult = promotion.calculateDiscount(totalPrice);
+          discount = discountResult.discount;
+          finalPrice = discountResult.finalAmount;
+          appliedPromoCode = promoCode.toUpperCase();
+
+          // Tăng số lần sử dụng
+          promotion.usedCount += 1;
+          await promotion.save();
+        }
+      }
+    }
+
     const appointment = await Appointment.create({
       customer: customerId,
       barber: barberId,
@@ -126,6 +164,9 @@ const createAppointment = async (req, res, next) => {
       totalPrice,
       totalDuration,
       notes,
+      promoCode: appliedPromoCode,
+      discount,
+      finalPrice,
       status: 'pending'
     });
 
@@ -168,13 +209,8 @@ const getAppointments = async (req, res, next) => {
 
     if (userRole === 'customer') {
       query.customer = userId;
-    } else if (userRole === 'barber') {
-      const barber = await Barber.findOne({ user: userId });
-      if (!barber) {
-        return next(new AppError('Barber profile not found', 404));
-      }
-      query.barber = barber._id;
     }
+    // admin and barber can see all appointments
 
     if (status) {
       query.status = status;
@@ -223,11 +259,30 @@ const getAppointments = async (req, res, next) => {
 
     const total = await Appointment.countDocuments(query);
 
+    // Add hasReview flag for completed appointments
+    const appointmentIds = appointments
+      .filter(a => a.status === 'completed')
+      .map(a => a._id);
+
+    const existingReviews = appointmentIds.length > 0
+      ? await Review.find({ appointment: { $in: appointmentIds } }).select('appointment')
+      : [];
+
+    const reviewedAppointmentIds = new Set(
+      existingReviews.map(r => r.appointment.toString())
+    );
+
+    const appointmentsWithReview = appointments.map(apt => {
+      const aptObj = apt.toObject();
+      aptObj.hasReview = reviewedAppointmentIds.has(apt._id.toString());
+      return aptObj;
+    });
+
     sendResponse(
       res,
       200,
       {
-        appointments,
+        appointments: appointmentsWithReview,
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -266,12 +321,8 @@ const getAppointmentById = async (req, res, next) => {
       if (appointment.customer._id.toString() !== userId.toString()) {
         return next(new AppError('You do not have permission to view this appointment', 403));
       }
-    } else if (userRole === 'barber') {
-      const barber = await Barber.findOne({ user: userId });
-      if (!barber || appointment.barber._id.toString() !== barber._id.toString()) {
-        return next(new AppError('You do not have permission to view this appointment', 403));
-      }
     }
+    // admin and barber can view any appointment
 
     sendResponse(res, 200, { appointment }, 'Appointment retrieved successfully');
   } catch (error) {
@@ -286,11 +337,6 @@ const confirmAppointment = async (req, res, next) => {
     const appointment = await Appointment.findById(id);
     if (!appointment) {
       return next(new AppError('Appointment not found', 404));
-    }
-
-    const barber = await Barber.findOne({ user: req.user._id });
-    if (!barber || appointment.barber.toString() !== barber._id.toString()) {
-      return next(new AppError('You do not have permission to confirm this appointment', 403));
     }
 
     if (appointment.status !== 'pending') {
@@ -325,19 +371,21 @@ const rejectAppointment = async (req, res, next) => {
       return next(new AppError('Appointment not found', 404));
     }
 
-    const barber = await Barber.findOne({ user: req.user._id });
-    if (!barber || appointment.barber.toString() !== barber._id.toString()) {
-      return next(new AppError('You do not have permission to reject this appointment', 403));
-    }
-
     if (appointment.status !== 'pending') {
       return next(
         new AppError(`Cannot reject appointment with status '${appointment.status}'`, 400)
       );
     }
 
+    // Prevent barber from rejecting paid appointments
+    if (appointment.paymentStatus === 'paid') {
+      return next(
+        new AppError('Cannot reject an appointment that has already been paid. Please contact admin for refund.', 400)
+      );
+    }
+
     appointment.status = 'cancelled';
-    appointment.cancelReason = reason || 'Rejected by barber';
+    appointment.cancelReason = reason || 'Rejected by admin';
     await appointment.save();
 
     await appointment.populate([
@@ -360,11 +408,6 @@ const startAppointment = async (req, res, next) => {
     const appointment = await Appointment.findById(id);
     if (!appointment) {
       return next(new AppError('Appointment not found', 404));
-    }
-
-    const barber = await Barber.findOne({ user: req.user._id });
-    if (!barber || appointment.barber.toString() !== barber._id.toString()) {
-      return next(new AppError('You do not have permission to start this appointment', 403));
     }
 
     if (appointment.status !== 'confirmed') {
@@ -398,11 +441,6 @@ const completeAppointment = async (req, res, next) => {
       return next(new AppError('Appointment not found', 404));
     }
 
-    const barber = await Barber.findOne({ user: req.user._id });
-    if (!barber || appointment.barber.toString() !== barber._id.toString()) {
-      return next(new AppError('You do not have permission to complete this appointment', 403));
-    }
-
     if (appointment.status !== 'in-progress') {
       return next(
         new AppError(`Cannot complete appointment with status '${appointment.status}'`, 400)
@@ -410,6 +448,7 @@ const completeAppointment = async (req, res, next) => {
     }
 
     appointment.status = 'completed';
+    appointment.paymentStatus = 'paid';
     await appointment.save();
 
     await appointment.populate([
@@ -447,6 +486,13 @@ const cancelAppointment = async (req, res, next) => {
     if (!['pending', 'confirmed'].includes(appointment.status)) {
       return next(
         new AppError(`Cannot cancel appointment with status '${appointment.status}'`, 400)
+      );
+    }
+
+    // Prevent barber from cancelling paid appointments
+    if (userRole === 'barber' && appointment.paymentStatus === 'paid') {
+      return next(
+        new AppError('Cannot cancel an appointment that has already been paid. Please contact admin for refund.', 400)
       );
     }
 
@@ -495,6 +541,14 @@ const rescheduleAppointment = async (req, res, next) => {
     const newEndTime = addMinutesToTime(startTime, appointment.totalDuration);
 
     const newDate = new Date(date);
+
+    // Validate: không cho đổi lịch sang ngày quá khứ
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (newDate < today) {
+      return next(new AppError('Cannot reschedule to a past date', 400));
+    }
+
     const dayName = getDayName(newDate);
     const workingDay = barber.workingHours[dayName];
 

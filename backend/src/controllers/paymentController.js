@@ -12,6 +12,16 @@ const {
 } = require('../services/vnpayService');
 const { CLIENT_URL } = require('../config/env');
 
+const escapeHtml = (str) => {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const generateTxnRef = () => {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -93,7 +103,7 @@ const sendInvoiceEmail = async (transaction, appointment) => {
                     </tr>
                   </table>
                   <p style="margin: 20px 0; color: #666666; font-size: 14px; line-height: 1.5;">
-                    Thank you for using Barberly. We look forward to seeing you!
+                    Thank you for using Haircut. We look forward to seeing you!
                   </p>
                   <table role="presentation" style="margin: 30px auto;">
                     <tr>
@@ -109,7 +119,7 @@ const sendInvoiceEmail = async (transaction, appointment) => {
               <tr>
                 <td style="padding: 20px 40px; background-color: #f8f8f8; border-radius: 0 0 8px 8px; text-align: center;">
                   <p style="margin: 0; color: #666666; font-size: 14px;">
-                    Best regards,<br>The Barberly Team
+                    Best regards,<br>The Haircut Team
                   </p>
                 </td>
               </tr>
@@ -124,7 +134,7 @@ const sendInvoiceEmail = async (transaction, appointment) => {
   try {
     await sendEmail({
       to: customer.email,
-      subject: 'Payment Confirmation - Barberly',
+      subject: 'Payment Confirmation - Haircut',
       html
     });
   } catch (error) {
@@ -170,10 +180,12 @@ const createPayment = async (req, res, next) => {
 
     const vnpTxnRef = generateTxnRef();
 
+    const paymentAmount = appointment.finalPrice || appointment.totalPrice;
+
     await Transaction.create({
       appointment: appointmentId,
       customer: customerId,
-      amount: appointment.totalPrice,
+      amount: paymentAmount,
       vnpTxnRef,
       status: 'pending',
       paymentMethod: 'vnpay'
@@ -378,6 +390,54 @@ const getMyTransactions = async (req, res, next) => {
   }
 };
 
+const vnpayReturn = async (req, res, next) => {
+  try {
+    const verification = verifyReturnUrl(req.query);
+
+    if (!verification.isValid) {
+      return res.redirect(`${CLIENT_URL}/payment/result?status=error&message=Invalid+signature`);
+    }
+
+    const transaction = await Transaction.findOne({
+      vnpTxnRef: verification.txnRef
+    });
+
+    if (!transaction) {
+      return res.redirect(`${CLIENT_URL}/payment/result?status=error&message=Transaction+not+found`);
+    }
+
+    if (transaction.status === 'pending') {
+      transaction.vnpTransactionNo = verification.transactionNo;
+      transaction.vnpResponseCode = verification.responseCode;
+      transaction.vnpBankCode = verification.bankCode;
+
+      if (verification.responseCode === '00') {
+        transaction.status = 'success';
+        transaction.paidAt = new Date();
+        await transaction.save();
+
+        const appointment = await Appointment.findById(transaction.appointment);
+        if (appointment) {
+          appointment.paymentStatus = 'paid';
+          appointment.paymentMethod = 'vnpay';
+          await appointment.save();
+
+          await sendInvoiceEmail(transaction, appointment);
+        }
+      } else {
+        transaction.status = 'failed';
+        await transaction.save();
+      }
+    }
+
+    const status = verification.responseCode === '00' ? 'success' : 'failed';
+    const message = encodeURIComponent(getResponseMessage(verification.responseCode));
+    return res.redirect(`${CLIENT_URL}/payment/result?status=${status}&txnRef=${verification.txnRef}&message=${message}`);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const processRefund = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -389,12 +449,12 @@ const processRefund = async (req, res, next) => {
       return next(new AppError('Transaction not found', 404));
     }
 
-    if (transaction.status !== 'success') {
-      return next(new AppError('Can only refund successful transactions', 400));
-    }
-
     if (transaction.status === 'refunded') {
       return next(new AppError('Transaction already refunded', 400));
+    }
+
+    if (transaction.status !== 'success') {
+      return next(new AppError('Can only refund successful transactions', 400));
     }
 
     const refundAmount = amount || transaction.amount;
@@ -459,7 +519,7 @@ const processRefund = async (req, res, next) => {
                               ${reason ? `
                               <tr>
                                 <td style="padding: 10px 0; color: #666666; font-size: 14px;">Reason:</td>
-                                <td style="padding: 10px 0; color: #333333; font-size: 14px; text-align: right;">${reason}</td>
+                                <td style="padding: 10px 0; color: #333333; font-size: 14px; text-align: right;">${escapeHtml(reason)}</td>
                               </tr>
                               ` : ''}
                             </table>
@@ -474,7 +534,7 @@ const processRefund = async (req, res, next) => {
                   <tr>
                     <td style="padding: 20px 40px; background-color: #f8f8f8; border-radius: 0 0 8px 8px; text-align: center;">
                       <p style="margin: 0; color: #666666; font-size: 14px;">
-                        Best regards,<br>The Barberly Team
+                        Best regards,<br>The Haircut Team
                       </p>
                     </td>
                   </tr>
@@ -489,7 +549,7 @@ const processRefund = async (req, res, next) => {
       try {
         await sendEmail({
           to: customer.email,
-          subject: 'Refund Processed - Barberly',
+          subject: 'Refund Processed - Haircut',
           html
         });
       } catch (emailError) {

@@ -8,11 +8,11 @@ const getOrCreateShop = async () => {
 
   if (!shop) {
     shop = await Shop.create({
-      name: 'Barberly Shop',
+      name: 'Haircut Shop',
       address: '123 Main Street, City',
       phone: '0123456789',
-      email: 'contact@barberly.com',
-      description: 'Welcome to Barberly - Your premium barbershop experience'
+      email: 'contact@haircut.com',
+      description: 'Welcome to Haircut - Your premium barbershop experience'
     });
   }
 

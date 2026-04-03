@@ -3,6 +3,8 @@ const Service = require('../models/Service');
 const AppError = require('../utils/AppError');
 const sendResponse = require('../utils/sendResponse');
 
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const createPromotion = async (req, res, next) => {
   try {
     const {
@@ -81,9 +83,10 @@ const getPromotions = async (req, res, next) => {
     }
 
     if (search) {
+      const safeSearch = escapeRegex(search);
       query.$or = [
-        { code: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { code: { $regex: safeSearch, $options: 'i' } },
+        { description: { $regex: safeSearch, $options: 'i' } }
       ];
     }
 
@@ -313,6 +316,10 @@ const applyPromotion = async (req, res, next) => {
     if (discountResult.discount === 0 && discountResult.message) {
       return next(new AppError(discountResult.message, 400));
     }
+
+    // Tăng usedCount khi apply thành công
+    promotion.usedCount += 1;
+    await promotion.save();
 
     sendResponse(
       res,
