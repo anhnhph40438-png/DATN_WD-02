@@ -1,36 +1,132 @@
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
+const Barber = require('../models/Barber');
 const User = require('../models/User');
+const Shop = require('../models/Shop');
+const Appointment = require('../models/Appointment');
+const Review = require('../models/Review');
+const mongoose = require('mongoose');
 const AppError = require('../utils/AppError');
 const sendResponse = require('../utils/sendResponse');
-const { sendWelcomeEmail, sendPasswordResetEmail } = require('../services/emailService');
-const { JWT_SECRET, JWT_EXPIRE } = require('../config/env');
+const { deleteFile } = require('../middlewares/upload');
 
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, JWT_SECRET, {
-    expiresIn: JWT_EXPIRE
-  });
+const timeToMinutes = (time) => {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
 };
 
-const sendTokenResponse = (user, statusCode, res, message) => {
-  const token = generateToken(user._id);
-
-  const userData = user.toObject();
-  delete userData.password;
-
-  res.status(statusCode).json({
-    success: true,
-    message,
-    data: {
-      user: userData,
-      token
-    }
-  });
+const getDefaultShop = async () => {
+  let shop = await Shop.findOne();
+  if (!shop) {
+    shop = await Shop.create({
+      name: 'Haircut Shop',
+      address: '123 Main Street, City',
+      phone: '0123456789'
+    });
+  }
+  return shop;
 };
 
-const register = async (req, res, next) => {
+const getAvailableBarbers = async (req, res, next) => {
   try {
-    const { name, email, phone, password } = req.body;
+    const barbers = await Barber.find({ isAvailable: true })
+      .populate('user', 'name email phone avatar')
+      .sort({ rating: -1 });
+
+    // Tính lại số lượng đánh giá thực tế từ collection reviews
+    const reviewStats = await Review.aggregate([
+      { $group: { _id: '$barber', totalReviews: { $sum: 1 }, avgRating: { $avg: '$rating' } } }
+    ]);
+    const reviewMap = {};
+    reviewStats.forEach(stat => {
+      reviewMap[stat._id.toString()] = { totalReviews: stat.totalReviews, rating: Math.round(stat.avgRating * 10) / 10 };
+    });
+
+    const barbersWithReviews = barbers.map(barber => {
+      const obj = barber.toObject();
+      const stats = reviewMap[barber._id.toString()];
+      if (stats) {
+        obj.totalReviews = stats.totalReviews;
+        obj.rating = stats.rating;
+      }
+      return obj;
+    });
+
+    sendResponse(res, 200, { barbers: barbersWithReviews }, 'Available barbers retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAllBarbers = async (req, res, next) => {
+  try {
+    const barbers = await Barber.find()
+      .populate('user', 'name email phone avatar isActive')
+      .sort({ createdAt: -1 });
+
+    // Tính lại số lượng đánh giá thực tế từ collection reviews
+    const reviewStats = await Review.aggregate([
+      { $group: { _id: '$barber', totalReviews: { $sum: 1 }, avgRating: { $avg: '$rating' } } }
+    ]);
+    const reviewMap = {};
+    reviewStats.forEach(stat => {
+      reviewMap[stat._id.toString()] = { totalReviews: stat.totalReviews, rating: Math.round(stat.avgRating * 10) / 10 };
+    });
+
+    const barbersWithReviews = barbers.map(barber => {
+      const obj = barber.toObject();
+      const stats = reviewMap[barber._id.toString()];
+      if (stats) {
+        obj.totalReviews = stats.totalReviews;
+        obj.rating = stats.rating;
+      }
+      return obj;
+    });
+
+    sendResponse(res, 200, { barbers: barbersWithReviews }, 'All barbers retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getBarberById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const barber = await Barber.findById(id)
+      .populate('user', 'name email phone avatar');
+
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
+    }
+
+    const reviews = await Review.find({ barber: id })
+      .populate('customer', 'name avatar')
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    // Tính lại số lượng đánh giá thực tế
+    const totalReviewCount = await Review.countDocuments({ barber: id });
+    const barberObj = barber.toObject();
+    barberObj.totalReviews = totalReviewCount;
+
+    // Cập nhật lại vào DB nếu khác
+    if (barber.totalReviews !== totalReviewCount) {
+      await Review.calculateAverageRating(barber._id);
+    }
+
+    sendResponse(
+      res,
+      200,
+      { barber: barberObj, reviews },
+      'Barber retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createBarber = async (req, res, next) => {
+  try {
+    const { name, email, phone, password, bio, skills } = req.body;
 
     const existingUser = await User.findOne({
       $or: [{ email }, { phone }]
@@ -47,193 +143,316 @@ const register = async (req, res, next) => {
       );
     }
 
+    const shop = await getDefaultShop();
+
     const user = await User.create({
       name,
       email,
       phone,
       password,
-      role: 'customer'
+      role: 'barber'
     });
 
-    sendWelcomeEmail(user).catch((err) => {
-      console.error('Failed to send welcome email:', err.message);
+    const barber = await Barber.create({
+      user: user._id,
+      shop: shop._id,
+      bio,
+      skills: skills || []
     });
 
-    sendTokenResponse(user, 201, res, 'Registration successful');
-  } catch (error) {
-    next(error);
-  }
-};
+    await barber.populate('user', 'name email phone avatar');
 
-const login = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return next(new AppError('Please provide email and password', 400));
-    }
-
-    const user = await User.findOne({ email }).select('+password');
-
-    if (!user) {
-      return next(new AppError('Invalid email or password', 401));
-    }
-
-    if (!user.isActive) {
-      return next(
-        new AppError('Your account has been deactivated. Please contact support.', 401)
-      );
-    }
-
-    const isPasswordMatch = await user.comparePassword(password);
-
-    if (!isPasswordMatch) {
-      return next(new AppError('Invalid email or password', 401));
-    }
-
-    sendTokenResponse(user, 200, res, 'Login successful');
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getMe = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user._id);
-
-    sendResponse(res, 200, { user }, 'User retrieved successfully');
-  } catch (error) {
-    next(error);
-  }
-};
-
-const updateProfile = async (req, res, next) => {
-  try {
-    const { name, email, phone } = req.body;
-
-    if (email && email !== req.user.email) {
-      const existingEmail = await User.findOne({ email, _id: { $ne: req.user._id } });
-      if (existingEmail) {
-        return next(new AppError('Email already in use', 400));
-      }
-    }
-
-    if (phone && phone !== req.user.phone) {
-      const existingPhone = await User.findOne({ phone, _id: { $ne: req.user._id } });
-      if (existingPhone) {
-        return next(new AppError('Phone number already in use', 400));
-      }
-    }
-
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      { name, email, phone },
-      { new: true, runValidators: true }
+    sendResponse(
+      res,
+      201,
+      { barber },
+      'Barber created successfully'
     );
-
-    sendResponse(res, 200, { user: updatedUser }, 'Profile updated successfully');
   } catch (error) {
     next(error);
   }
 };
 
-const updatePassword = async (req, res, next) => {
+const updateBarber = async (req, res, next) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { id } = req.params;
+    const { bio, skills, portfolio } = req.body;
 
-    const user = await User.findById(req.user._id).select('+password');
+    const barber = await Barber.findById(id);
 
-    const isPasswordMatch = await user.comparePassword(currentPassword);
-
-    if (!isPasswordMatch) {
-      return next(new AppError('Current password is incorrect', 401));
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
     }
 
-    user.password = newPassword;
-    await user.save();
+    if (!['admin', 'barber'].includes(req.user.role) && barber.user.toString() !== req.user._id.toString()) {
+      return next(new AppError('You do not have permission to update this profile', 403));
+    }
 
-    sendResponse(res, 200, null, 'Password updated successfully');
+    if (bio !== undefined) barber.bio = bio;
+    if (skills !== undefined) barber.skills = skills;
+    if (portfolio !== undefined) barber.portfolio = portfolio;
+
+    await barber.save();
+
+    await barber.populate('user', 'name email phone avatar');
+
+    sendResponse(res, 200, { barber }, 'Barber profile updated successfully');
   } catch (error) {
     next(error);
   }
 };
 
-const forgotPassword = async (req, res, next) => {
+const updateWorkingHours = async (req, res, next) => {
   try {
-    const { email } = req.body;
+    const { id } = req.params;
+    const { workingHours } = req.body;
 
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return next(new AppError('No user found with that email address', 404));
+    if (!workingHours || typeof workingHours !== 'object') {
+      return next(new AppError('Working hours object is required', 400));
     }
 
-    const resetToken = user.createPasswordResetToken();
-    await user.save({ validateBeforeSave: false });
+    const barber = await Barber.findById(id);
 
-    try {
-      await sendPasswordResetEmail(user, resetToken);
-
-      sendResponse(
-        res,
-        200,
-        null,
-        'Password reset email sent. Please check your inbox.'
-      );
-    } catch (err) {
-      user.passwordResetToken = undefined;
-      user.passwordResetExpires = undefined;
-      await user.save({ validateBeforeSave: false });
-
-      return next(
-        new AppError('Error sending email. Please try again later.', 500)
-      );
-    }
-  } catch (error) {
-    next(error);
-  }
-};
-
-const resetPassword = async (req, res, next) => {
-  try {
-    const { token } = req.params;
-    const { password } = req.body;
-
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
-    const user = await User.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpires: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return next(
-        new AppError('Password reset token is invalid or has expired', 400)
-      );
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
     }
 
-    user.password = password;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save();
+    if (!['admin', 'barber'].includes(req.user.role) && barber.user.toString() !== req.user._id.toString()) {
+      return next(new AppError('You do not have permission to update this schedule', 403));
+    }
+
+    const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+    for (const day of validDays) {
+      if (workingHours[day]) {
+        const daySchedule = workingHours[day];
+
+        if (daySchedule.start !== undefined) {
+          barber.workingHours[day].start = daySchedule.start;
+        }
+        if (daySchedule.end !== undefined) {
+          barber.workingHours[day].end = daySchedule.end;
+        }
+        if (daySchedule.isOff !== undefined) {
+          barber.workingHours[day].isOff = daySchedule.isOff;
+        }
+      }
+    }
+
+    await barber.save();
 
     sendResponse(
       res,
       200,
-      null,
-      'Password has been reset successfully. You can now log in with your new password.'
+      { workingHours: barber.workingHours },
+      'Working hours updated successfully'
     );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const toggleBarberStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const barber = await Barber.findById(id);
+
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
+    }
+
+    barber.isAvailable = !barber.isAvailable;
+    await barber.save();
+
+    sendResponse(
+      res,
+      200,
+      { barber: { _id: barber._id, isAvailable: barber.isAvailable } },
+      `Barber ${barber.isAvailable ? 'is now available' : 'is now unavailable'}`
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteBarber = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const barber = await Barber.findById(id).populate('user');
+
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
+    }
+
+    if (barber.user && barber.user.avatar) {
+      await deleteFile(barber.user.avatar);
+    }
+
+    await Barber.findByIdAndDelete(id);
+
+    if (barber.user) {
+      await User.findByIdAndDelete(barber.user._id);
+    }
+
+    sendResponse(res, 200, null, 'Barber and associated user deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAvailableSlots = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { date, duration } = req.query;
+    const serviceDuration = parseInt(duration) || 30; // Thời gian dịch vụ (phút), mặc định 30
+
+    if (!date) {
+      return next(new AppError('Date query parameter is required', 400));
+    }
+
+    const targetDate = new Date(date);
+    if (isNaN(targetDate.getTime())) {
+      return next(new AppError('Invalid date format. Use YYYY-MM-DD', 400));
+    }
+
+    const barber = await Barber.findById(id);
+    if (!barber) {
+      return next(new AppError('Barber not found', 404));
+    }
+
+    if (!barber.isAvailable) {
+      return sendResponse(res, 200, { availableSlots: [], message: 'Barber is not available' }, 'Barber is currently not available');
+    }
+
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayOfWeek = days[targetDate.getDay()];
+
+    const workingDay = barber.workingHours[dayOfWeek];
+
+    if (workingDay.isOff) {
+      return sendResponse(res, 200, { availableSlots: [], message: `Barber is off on ${dayOfWeek}` }, 'Barber is off on this day');
+    }
+
+    const startTime = workingDay.start;
+    const endTime = workingDay.end;
+    const allSlots = generateTimeSlots(startTime, endTime, 30);
+
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingAppointments = await Appointment.find({
+      barber: id,
+      date: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      },
+      status: { $nin: ['cancelled'] }
+    });
+
+    // Lọc các slot khả dụng dựa trên duration của dịch vụ
+    const availableSlots = allSlots.filter(slot => {
+      const slotStart = timeToMinutes(slot);
+      const slotEnd = slotStart + serviceDuration;
+      const workEndMinutes = timeToMinutes(endTime);
+
+      // Kiểm tra slot + duration có vượt giờ làm việc không
+      if (slotEnd > workEndMinutes) return false;
+
+      // Kiểm tra xung đột với các lịch hẹn hiện có
+      for (const appointment of existingAppointments) {
+        const aptStart = timeToMinutes(appointment.startTime);
+        const aptEnd = timeToMinutes(appointment.endTime);
+        // Overlap: slotStart < aptEnd && aptStart < slotEnd
+        if (slotStart < aptEnd && aptStart < slotEnd) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    targetDate.setHours(0, 0, 0, 0);
+
+    let finalSlots = availableSlots;
+    if (targetDate.getTime() === today.getTime()) {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+      finalSlots = availableSlots.filter(slot => {
+        const [hour, minute] = slot.split(':').map(Number);
+        const slotTimeInMinutes = hour * 60 + minute;
+        return slotTimeInMinutes > currentTimeInMinutes + 30;
+      });
+    }
+
+    sendResponse(
+      res,
+      200,
+      {
+        date: date,
+        dayOfWeek,
+        workingHours: { start: startTime, end: endTime },
+        availableSlots: finalSlots
+      },
+      'Available slots retrieved successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const generateTimeSlots = (start, end, intervalMinutes) => {
+  const slots = [];
+  const [startHour, startMinute] = start.split(':').map(Number);
+  const [endHour, endMinute] = end.split(':').map(Number);
+
+  let currentMinutes = startHour * 60 + startMinute;
+  const endMinutes = endHour * 60 + endMinute;
+
+  while (currentMinutes < endMinutes) {
+    const hours = Math.floor(currentMinutes / 60);
+    const minutes = currentMinutes % 60;
+    slots.push(
+      `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+    );
+    currentMinutes += intervalMinutes;
+  }
+
+  return slots;
+};
+
+const getMyBarberProfile = async (req, res, next) => {
+  try {
+    const barber = await Barber.findOne({ user: req.user._id })
+      .populate('user', 'name email phone avatar');
+
+    if (!barber) {
+      return next(new AppError('Barber profile not found', 404));
+    }
+
+    sendResponse(res, 200, { barber }, 'Barber profile retrieved successfully');
   } catch (error) {
     next(error);
   }
 };
 
 module.exports = {
-  register,
-  login,
-  getMe,
-  updateProfile,
-  updatePassword,
-  forgotPassword,
-  resetPassword
+  getAvailableBarbers,
+  getAllBarbers,
+  getBarberById,
+  getMyBarberProfile,
+  createBarber,
+  updateBarber,
+  updateWorkingHours,
+  toggleBarberStatus,
+  deleteBarber,
+  getAvailableSlots
 };
