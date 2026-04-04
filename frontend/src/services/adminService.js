@@ -66,12 +66,28 @@ const adminService = {
   },
 
   createService: async (data) => {
-    const response = await api.post('/services', data);
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (data[key] !== null && data[key] !== undefined) {
+        formData.append(key, data[key]);
+      }
+    });
+    const response = await api.post('/services', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 
   updateService: async (id, data) => {
-    const response = await api.put(`/services/${id}`, data);
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (data[key] !== null && data[key] !== undefined) {
+        formData.append(key, data[key]);
+      }
+    });
+    const response = await api.put(`/services/${id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 
@@ -93,6 +109,26 @@ const adminService = {
 
   cancelAppointment: async (id, reason = '') => {
     const response = await api.patch(`/appointments/${id}/cancel`, { reason });
+    return response.data;
+  },
+
+  confirmAppointment: async (id) => {
+    const response = await api.patch(`/appointments/${id}/confirm`);
+    return response.data;
+  },
+
+  rejectAppointment: async (id, reason = '') => {
+    const response = await api.patch(`/appointments/${id}/reject`, { reason });
+    return response.data;
+  },
+
+  startAppointment: async (id) => {
+    const response = await api.patch(`/appointments/${id}/start`);
+    return response.data;
+  },
+
+  completeAppointment: async (id) => {
+    const response = await api.patch(`/appointments/${id}/complete`);
     return response.data;
   },
 

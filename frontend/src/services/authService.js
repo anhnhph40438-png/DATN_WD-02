@@ -4,21 +4,23 @@ const authService = {
   // Login user
   login: async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    const { user, token } = response.data.data;
+    if (token) {
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
     }
-    return response.data;
+    return { user, token };
   },
 
   // Register new user
   register: async (userData) => {
     const response = await api.post('/auth/register', userData);
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    const { user, token } = response.data.data;
+    if (token) {
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
     }
-    return response.data;
+    return { user, token };
   },
 
   // Logout user
@@ -41,27 +43,22 @@ const authService = {
   // Get current user from API (verify token)
   getMe: async () => {
     const response = await api.get('/auth/me');
-    return response.data;
-  },
-
-  // Get user profile
-  getProfile: async () => {
-    const response = await api.get('/auth/profile');
-    return response.data;
+    return response.data.data;
   },
 
   // Update user profile
   updateProfile: async (userData) => {
     const response = await api.put('/auth/profile', userData);
-    if (response.data.user) {
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    const { user } = response.data.data;
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
     }
-    return response.data;
+    return response.data.data;
   },
 
   // Change password
   changePassword: async (currentPassword, newPassword) => {
-    const response = await api.put('/auth/change-password', {
+    const response = await api.put('/auth/password', {
       currentPassword,
       newPassword,
     });
@@ -76,9 +73,8 @@ const authService = {
 
   // Reset password
   resetPassword: async (token, newPassword) => {
-    const response = await api.post('/auth/reset-password', {
-      token,
-      newPassword,
+    const response = await api.post(`/auth/reset-password/${token}`, {
+      password: newPassword,
     });
     return response.data;
   },

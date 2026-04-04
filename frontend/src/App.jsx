@@ -120,7 +120,7 @@ function App() {
           </Route>
 
           {/* Barber protected routes */}
-          <Route element={<ProtectedRoute allowedRoles={['barber']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['barber', 'admin']} />}>
             <Route element={<BarberLayout />}>
               <Route path="/barber" element={<BarberDashboard />} />
               <Route path="/barber/appointments" element={<BarberAppointments />} />
@@ -131,7 +131,7 @@ function App() {
           </Route>
 
           {/* Admin protected routes */}
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'barber']} />}>
             <Route element={<AdminLayout />}>
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<AdminUsers />} />

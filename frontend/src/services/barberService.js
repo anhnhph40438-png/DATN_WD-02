@@ -14,10 +14,10 @@ const barberService = {
   },
 
   // Get available time slots for a barber on a specific date
-  getAvailableSlots: async (barberId, date) => {
-    const response = await api.get(`/barbers/${barberId}/available-slots`, {
-      params: { date },
-    });
+  getAvailableSlots: async (barberId, date, duration) => {
+    const params = { date };
+    if (duration) params.duration = duration;
+    const response = await api.get(`/barbers/${barberId}/available-slots`, { params });
     return response.data;
   },
 

@@ -25,6 +25,12 @@ const statisticsService = {
     return response.data;
   },
 
+  // Get service statistics (for admin)
+  getServiceStats: async (params = {}) => {
+    const response = await api.get('/statistics/services', { params });
+    return response.data;
+  },
+
   // Get barber statistics (for admin)
   getBarberStats: async (params = {}) => {
     const response = await api.get('/statistics/barbers', { params });
