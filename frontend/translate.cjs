@@ -125,7 +125,7 @@ const dictionary = {
   // HomePage Long texts
   "Dat lich cat toc online": "Đặt lịch cắt tóc online",
   "He thong dat lich cat toc truc tuyen hang dau. Chon barber yeu thich, dat lich nhanh chong chi voi vai thao tac.": "Hệ thống đặt lịch cắt tóc trực tuyến hàng đầu. Chọn barber yêu thích, đặt lịch nhanh chóng chỉ với vài thao tác.",
-  "Tai sao chon Barberly?": "Tại sao chọn Barberly?",
+  "Tai sao chon Haircut?": "Tại sao chọn Haircut?",
   "Chung toi mang den trai nghiem dat lich cat toc tot nhat voi nhieu tien ich huu ich.": "Chúng tôi mang đến trải nghiệm đặt lịch cắt tóc tốt nhất với nhiều tiện ích hữu ích.",
   "Dat lich de dang": "Đặt lịch dễ dàng",
   "Dat lich chi voi vai click, chon thoi gian phu hop nhat.": "Đặt lịch chỉ với vài click, chọn thời gian phù hợp nhất.",
