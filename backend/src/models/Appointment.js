@@ -5,7 +5,7 @@ const appointmentSchema = new mongoose.Schema(
     customer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Customer is required']
+      required: false
     },
     barber: {
       type: mongoose.Schema.Types.ObjectId,
@@ -86,6 +86,45 @@ const appointmentSchema = new mongoose.Schema(
     },
     finalPrice: {
       type: Number
+    },
+
+    // Walk-in booking fields
+    bookingType: {
+      type: String,
+      enum: ['online', 'walk-in'],
+      default: 'online'
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    walkInCustomerName: {
+      type: String,
+      trim: true
+    },
+    walkInCustomerPhone: {
+      type: String,
+      trim: true
+    },
+
+    // Reschedule request from barber
+    rescheduleRequest: {
+      requestedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      newDate: Date,
+      newStartTime: String,
+      newEndTime: String,
+      reason: String,
+      status: {
+        type: String,
+        enum: ['pending', 'accepted', 'rejected']
+      },
+      token: String,
+      tokenExpires: Date,
+      createdAt: Date,
+      respondedAt: Date
     }
   },
   {
