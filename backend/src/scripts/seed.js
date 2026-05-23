@@ -18,7 +18,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/haircu
 
 const shopData = {
   name: 'Haircut - Tiệm cắt tóc nam',
-  address: '54 Nguyễn Lương Bằng, Hoà Khánh Bắc, Liên Chiểu, Đà Nẵng',
+  address: 'Đường Trịnh Văn Bô',
   phone: '0236 3846 999',
   email: 'contact@haircut.vn',
   description:
@@ -144,7 +144,7 @@ const barbersData = [
         thursday: { start: '08:00', end: '18:00', isOff: false },
         friday: { start: '08:00', end: '18:00', isOff: false },
         saturday: { start: '08:00', end: '20:00', isOff: false },
-        sunday: { start: '00:00', end: '00:00', isOff: true }
+        sunday: { start: '09:00', end: '17:00', isOff: false }
       }
     }
   },
@@ -188,7 +188,7 @@ const barbersData = [
         thursday: { start: '08:00', end: '18:00', isOff: false },
         friday: { start: '08:00', end: '18:00', isOff: false },
         saturday: { start: '09:00', end: '20:00', isOff: false },
-        sunday: { start: '09:00', end: '15:00', isOff: false }
+        sunday: { start: '09:00', end: '17:00', isOff: false }
       }
     }
   }
