@@ -35,7 +35,7 @@ const updateShopValidation = [
     .trim()
     .isEmail()
     .withMessage('Please provide a valid email')
-    .normalizeEmail(),
+    .normalizeEmail({ gmail_remove_dots: false, gmail_remove_subaddress: false, outlookdotcom_remove_subaddress: false, yahoo_remove_subaddress: false, icloud_remove_subaddress: false }),
   body('description')
     .optional()
     .trim()
