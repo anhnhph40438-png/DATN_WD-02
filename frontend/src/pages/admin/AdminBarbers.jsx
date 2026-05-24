@@ -3,8 +3,6 @@ import {
   FiPlus,
   FiEdit2,
   FiTrash2,
-  FiToggleLeft,
-  FiToggleRight,
   FiX,
   FiUser,
   FiMail,
@@ -171,23 +169,6 @@ const AdminBarbers = () => {
     }
   };
 
-  const handleToggleStatus = async (barber) => {
-    try {
-      setActionLoading(true);
-      await adminService.toggleBarberStatus(barber._id);
-      setBarbers(barbers.map(b =>
-        b._id === barber._id
-          ? { ...b, isAvailable: !b.isAvailable }
-          : b
-      ));
-    } catch (err) {
-      console.error('Error toggling barber status:', err);
-      alert('Không thể thay đổi trạng thái barber');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleDelete = async () => {
     if (!barberToDelete) return;
     try {
@@ -202,16 +183,6 @@ const AdminBarbers = () => {
     } finally {
       setActionLoading(false);
     }
-  };
-
-  const getStatusBadge = (isAvailable) => {
-    return isAvailable
-      ? 'bg-green-100 text-green-700'
-      : 'bg-dark-100 text-dark-600';
-  };
-
-  const getStatusText = (isAvailable) => {
-    return isAvailable ? 'Hoạt động' : 'Nghỉ việc';
   };
 
   return (
@@ -271,9 +242,6 @@ const AdminBarbers = () => {
                       </div>
                     </div>
                   </div>
-                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(barber.isAvailable)}`}>
-                    {getStatusText(barber.isAvailable)}
-                  </span>
                 </div>
 
                 <div className="space-y-2 mb-4">
@@ -318,22 +286,6 @@ const AdminBarbers = () => {
                     title="Chỉnh sửa"
                   >
                     <FiEdit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleToggleStatus(barber)}
-                    disabled={actionLoading}
-                    className={`p-2 rounded-lg transition-colors ${
-                      barber.isAvailable
-                        ? 'text-green-600 hover:text-red-600 hover:bg-red-50'
-                        : 'text-red-600 hover:text-green-600 hover:bg-green-50'
-                    }`}
-                    title={barber.isAvailable ? 'Vô hiệu hóa' : 'Kích hoạt'}
-                  >
-                    {barber.isAvailable ? (
-                      <FiToggleRight className="w-4 h-4" />
-                    ) : (
-                      <FiToggleLeft className="w-4 h-4" />
-                    )}
                   </button>
                   <button
                     onClick={() => { setBarberToDelete(barber); setShowDeleteModal(true); }}

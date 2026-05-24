@@ -8,3 +8,4 @@ export { default as MyAppointmentsPage } from './MyAppointmentsPage';
 export { default as ProfilePage } from './ProfilePage';
 export { default as PaymentPage } from './PaymentPage';
 export { default as PaymentResultPage } from './PaymentResultPage';
+export { default as RescheduleConfirmPage } from './RescheduleConfirmPage';

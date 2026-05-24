@@ -12,6 +12,8 @@ import {
 import toast from 'react-hot-toast';
 import { appointmentService } from '../../services';
 import { formatDate, formatCurrency } from '../../utils/formatters';
+import Modal from '../../components/ui/Modal';
+import { ConfirmModal } from '../../components/ui';
 
 const MyAppointmentsPage = () => {
   const [appointments, setAppointments] = useState([]);
@@ -21,10 +23,18 @@ const MyAppointmentsPage = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
+  const [respondLoading, setRespondLoading] = useState(false);
 
   useEffect(() => {
     fetchAppointments();
@@ -96,6 +106,21 @@ const MyAppointmentsPage = () => {
     setShowCancelModal(true);
   };
 
+  const handleConfirmAction = async () => {
+    setConfirmLoading(true);
+    try {
+      const { type, appointmentId } = confirmAction;
+      if (type === 'cancel') await appointmentService.cancelAppointment(appointmentId, '');
+      toast.success('Đã hủy lịch hẹn thành công');
+      setConfirmAction(null);
+      fetchAppointments();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
+
   const handleCancelConfirm = async () => {
     if (!selectedAppointment) return;
 
@@ -138,6 +163,48 @@ const MyAppointmentsPage = () => {
     } finally {
       setSubmittingReview(false);
     }
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleDate || !rescheduleTime) {
+      toast.error('Vui lòng chọn ngày và giờ mới');
+      return;
+    }
+    setRescheduleLoading(true);
+    try {
+      await appointmentService.rescheduleAppointment(rescheduleTarget._id, {
+        date: rescheduleDate,
+        startTime: rescheduleTime,
+      });
+      toast.success('Đổi lịch thành công!');
+      setRescheduleModalOpen(false);
+      setRescheduleTarget(null);
+      fetchAppointments();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Không thể đổi lịch');
+    } finally {
+      setRescheduleLoading(false);
+    }
+  };
+
+  const handleRespondReschedule = async (appointmentId, action) => {
+    setRespondLoading(true);
+    try {
+      await appointmentService.respondToReschedule(appointmentId, action);
+      toast.success(action === 'accept' ? 'Đã chấp nhận đổi lịch!' : 'Đã từ chối đổi lịch!');
+      fetchAppointments();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Không thể xử lý yêu cầu');
+    } finally {
+      setRespondLoading(false);
+    }
+  };
+
+  const openRescheduleModal = (apt) => {
+    setRescheduleTarget(apt);
+    setRescheduleDate('');
+    setRescheduleTime('');
+    setRescheduleModalOpen(true);
   };
 
   const filteredAppointments = filterAppointments();
@@ -246,6 +313,35 @@ const MyAppointmentsPage = () => {
                     </div>
                   </div>
 
+                  {/* Reschedule Request Banner */}
+                  {appointment.rescheduleRequest && appointment.rescheduleRequest.status === 'pending' && (
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm font-medium text-yellow-800 mb-1">Yêu cầu đổi lịch từ thợ cắt tóc</p>
+                      <p className="text-xs text-yellow-700">
+                        Ngày mới: {new Date(appointment.rescheduleRequest.newDate).toLocaleDateString('vi-VN')} | Giờ: {appointment.rescheduleRequest.newStartTime} - {appointment.rescheduleRequest.newEndTime}
+                      </p>
+                      {appointment.rescheduleRequest.reason && (
+                        <p className="text-xs text-yellow-600 mt-1">Lý do: {appointment.rescheduleRequest.reason}</p>
+                      )}
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => handleRespondReschedule(appointment._id, 'accept')}
+                          disabled={respondLoading}
+                          className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50"
+                        >
+                          Chấp nhận
+                        </button>
+                        <button
+                          onClick={() => handleRespondReschedule(appointment._id, 'reject')}
+                          disabled={respondLoading}
+                          className="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50"
+                        >
+                          Từ chối
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Total & Actions */}
                   <div className="flex items-center justify-between pt-4 border-t border-dark-100">
                     <div>
@@ -270,11 +366,21 @@ const MyAppointmentsPage = () => {
                       {/* Cancel button for pending/confirmed */}
                       {['pending', 'confirmed'].includes(appointment.status) && (
                         <button
-                          onClick={() => handleCancelClick(appointment)}
+                          onClick={() => setConfirmAction({ type: 'cancel', appointmentId: appointment._id, title: 'Hủy lịch hẹn', message: 'Bạn có chắc chắn muốn hủy lịch hẹn này? Hành động này không thể hoàn tác.', variant: 'danger', confirmText: 'Hủy lịch' })}
                           className="inline-flex items-center px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
                         >
                           <FiX className="w-4 h-4 mr-1" />
                           Hủy lịch
+                        </button>
+                      )}
+
+                      {/* Reschedule button for pending/confirmed */}
+                      {['pending', 'confirmed'].includes(appointment.status) && (
+                        <button
+                          onClick={() => openRescheduleModal(appointment)}
+                          className="px-3 py-1.5 text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100"
+                        >
+                          Đổi lịch
                         </button>
                       )}
 
@@ -332,6 +438,18 @@ const MyAppointmentsPage = () => {
         )}
       </div>
 
+      {/* Confirm Action Modal */}
+      <ConfirmModal
+        isOpen={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={handleConfirmAction}
+        title={confirmAction?.title || ''}
+        message={confirmAction?.message || ''}
+        variant={confirmAction?.variant || 'danger'}
+        confirmText={confirmAction?.confirmText || 'Xác nhận'}
+        loading={confirmLoading}
+      />
+
       {/* Cancel Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -375,6 +493,42 @@ const MyAppointmentsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Reschedule Modal */}
+      <Modal isOpen={rescheduleModalOpen} onClose={() => setRescheduleModalOpen(false)} title="Đổi lịch hẹn">
+        <div className="space-y-4">
+          {rescheduleTarget && (
+            <div className="p-3 bg-gray-50 rounded-lg text-sm">
+              <p className="text-gray-600">Lịch hiện tại: {new Date(rescheduleTarget.date).toLocaleDateString('vi-VN')} lúc {rescheduleTarget.startTime}</p>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ngày mới</label>
+            <input
+              type="date"
+              value={rescheduleDate}
+              onChange={(e) => setRescheduleDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Giờ mới</label>
+            <input
+              type="time"
+              value={rescheduleTime}
+              onChange={(e) => setRescheduleTime(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button onClick={() => setRescheduleModalOpen(false)} className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Hủy</button>
+            <button onClick={handleReschedule} disabled={rescheduleLoading} className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 disabled:opacity-50">
+              {rescheduleLoading ? 'Đang xử lý...' : 'Đổi lịch'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Review Modal */}
       {showReviewModal && (

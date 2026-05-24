@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FiSearch,
   FiFilter,
@@ -19,10 +20,14 @@ import {
   FiPlay,
   FiCheckCircle
 } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 import { adminService, barberService } from '../../services';
 import { formatDate, formatTime, formatCurrency, formatPhoneNumber } from '../../utils/formatters';
+import Modal from '../../components/ui/Modal';
+import { ConfirmModal } from '../../components/ui';
 
 const AdminAppointments = () => {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [barbers, setBarbers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +47,12 @@ const AdminAppointments = () => {
   const [appointmentToCancel, setAppointmentToCancel] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
 
   useEffect(() => {
     fetchBarbers();
@@ -184,6 +195,16 @@ const AdminAppointments = () => {
     }
   };
 
+  const runConfirmAction = async () => {
+    if (!confirmAction) return;
+    const { type, appointment } = confirmAction;
+    if (type === 'confirm') await handleConfirmAppointment(appointment);
+    else if (type === 'start') await handleStartAppointment(appointment);
+    else if (type === 'complete') await handleCompleteAppointment(appointment);
+    setConfirmAction(null);
+    toast.success('Thao tác thành công');
+  };
+
   const handleConfirmAppointment = async (appointment) => {
     try {
       setActionLoading(true);
@@ -250,6 +271,34 @@ const AdminAppointments = () => {
     }
   };
 
+  const handleAdminReschedule = async () => {
+    if (!rescheduleDate || !rescheduleTime) {
+      toast.error('Vui lòng chọn ngày và giờ mới');
+      return;
+    }
+    setRescheduleLoading(true);
+    try {
+      await adminService.rescheduleAppointment(rescheduleTarget._id, {
+        date: rescheduleDate,
+        startTime: rescheduleTime,
+      });
+      toast.success('Đổi lịch thành công!');
+      setRescheduleModalOpen(false);
+      fetchAppointments();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Không thể đổi lịch');
+    } finally {
+      setRescheduleLoading(false);
+    }
+  };
+
+  const openRescheduleModal = (apt) => {
+    setRescheduleTarget(apt);
+    setRescheduleDate('');
+    setRescheduleTime('');
+    setRescheduleModalOpen(true);
+  };
+
   const handleViewAppointment = (appointment) => {
     setSelectedAppointment(appointment);
     setShowViewModal(true);
@@ -302,9 +351,17 @@ const AdminAppointments = () => {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-display font-bold text-dark-900">Quản lý lịch hẹn</h1>
-        <p className="text-dark-600">Xem và quản lý tất cả lịch hẹn</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-dark-900">Quản lý lịch hẹn</h1>
+          <p className="text-dark-600">Xem và quản lý tất cả lịch hẹn</p>
+        </div>
+        <button
+          onClick={() => navigate('/admin/walk-in-booking')}
+          className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
+        >
+          Đặt lịch tại quầy
+        </button>
       </div>
 
       {error && (
@@ -431,8 +488,13 @@ const AdminAppointments = () => {
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-dark-900">
+                            <div className="text-sm font-medium text-dark-900 flex items-center">
                               {appointment.customer?.name || 'N/A'}
+                              {appointment.bookingType === 'walk-in' && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 ml-2">
+                                  Walk-in
+                                </span>
+                              )}
                             </div>
                             <div className="text-sm text-dark-500">
                               {formatPhoneNumber(appointment.customer?.phone)}
@@ -491,10 +553,18 @@ const AdminAppointments = () => {
                           >
                             <FiEye className="w-4 h-4" />
                           </button>
+                          {['pending', 'confirmed'].includes(appointment.status) && (
+                            <button
+                              onClick={() => openRescheduleModal(appointment)}
+                              className="px-2 py-1 text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded hover:bg-yellow-100"
+                            >
+                              Đổi lịch
+                            </button>
+                          )}
                           {appointment.status === 'pending' && (
                             <>
                               <button
-                                onClick={() => handleConfirmAppointment(appointment)}
+                                onClick={() => setConfirmAction({ type: 'confirm', appointment, title: 'Xác nhận lịch hẹn', message: 'Bạn có chắc chắn muốn xác nhận lịch hẹn này?', variant: 'info', confirmText: 'Xác nhận' })}
                                 disabled={actionLoading}
                                 className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                                 title="Xác nhận"
@@ -514,7 +584,7 @@ const AdminAppointments = () => {
                           {appointment.status === 'confirmed' && (
                             <>
                               <button
-                                onClick={() => handleStartAppointment(appointment)}
+                                onClick={() => setConfirmAction({ type: 'start', appointment, title: 'Xác nhận khách đến', message: 'Khách đã đến và bắt đầu sử dụng dịch vụ?', variant: 'info', confirmText: 'Xác nhận' })}
                                 disabled={actionLoading}
                                 className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="Xác nhận khách đến"
@@ -532,7 +602,7 @@ const AdminAppointments = () => {
                           )}
                           {appointment.status === 'in-progress' && (
                             <button
-                              onClick={() => handleCompleteAppointment(appointment)}
+                              onClick={() => setConfirmAction({ type: 'complete', appointment, title: 'Hoàn thành dịch vụ', message: 'Đánh dấu khách đã hoàn tất dịch vụ và đã thanh toán?', variant: 'info', confirmText: 'Hoàn thành' })}
                               disabled={actionLoading}
                               className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                               title="Xác nhận khách đi (hoàn thành + đã thanh toán)"
@@ -756,6 +826,33 @@ const AdminAppointments = () => {
         </div>
       )}
 
+      <Modal isOpen={rescheduleModalOpen} onClose={() => setRescheduleModalOpen(false)} title="Đổi lịch hẹn">
+        <div className="space-y-4">
+          {rescheduleTarget && (
+            <div className="p-3 bg-gray-50 rounded-lg text-sm">
+              <p className="text-gray-600">Lịch hiện tại: {new Date(rescheduleTarget.date).toLocaleDateString('vi-VN')} lúc {rescheduleTarget.startTime}</p>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ngày mới</label>
+            <input type="date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Giờ mới</label>
+            <input type="time" value={rescheduleTime} onChange={(e) => setRescheduleTime(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500" />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button onClick={() => setRescheduleModalOpen(false)} className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Hủy</button>
+            <button onClick={handleAdminReschedule} disabled={rescheduleLoading} className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 disabled:opacity-50">
+              {rescheduleLoading ? 'Đang xử lý...' : 'Đổi lịch'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {showCancelModal && appointmentToCancel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowCancelModal(false)} />
@@ -800,6 +897,17 @@ const AdminAppointments = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={runConfirmAction}
+        title={confirmAction?.title}
+        message={confirmAction?.message}
+        variant={confirmAction?.variant}
+        confirmText={confirmAction?.confirmText}
+        loading={actionLoading}
+      />
     </div>
   );
 };

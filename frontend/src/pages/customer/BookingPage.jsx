@@ -111,21 +111,8 @@ const BookingPage = () => {
   };
 
   const handleServiceToggle = (service) => {
-    const exists = selectedServices.find(s => s._id === service._id);
-    if (exists) {
-      setSelectedServices(selectedServices.filter(s => s._id !== service._id));
-    } else {
-      // Nếu dịch vụ là combo, chỉ cho phép chọn 1 combo duy nhất
-      if (service.category === 'combo') {
-        const hasCombo = selectedServices.some(s => s.category === 'combo');
-        if (hasCombo) {
-          toast.error('Mỗi lần đặt lịch chỉ được chọn 1 combo duy nhất');
-          return;
-        }
-      }
-      setSelectedServices([...selectedServices, service]);
-    }
-    // Reset promo when services change
+    const isSelected = selectedServices[0]?._id === service._id;
+    setSelectedServices(isSelected ? [] : [service]);
     setPromoApplied(false);
     setPromoDiscount(0);
   };
@@ -302,7 +289,7 @@ const BookingPage = () => {
           {step === 1 && (
             <div>
               <h2 className="text-xl font-display font-semibold text-dark-900 mb-4">Chọn dịch vụ</h2>
-              <p className="text-dark-600 mb-6">Chọn một hoặc nhiều dịch vụ bạn muốn sử dụng</p>
+              <p className="text-dark-600 mb-6">Chọn dịch vụ bạn muốn sử dụng</p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {services.map((service) => {
@@ -346,7 +333,7 @@ const BookingPage = () => {
                 <div className="mt-6 p-4 border border-dark-200 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-dark-600">Đã chọn {selectedServices.length} dịch vụ</p>
+                      <p className="text-sm text-dark-600">Đã chọn: {selectedServices[0]?.name}</p>
                       <p className="text-sm text-dark-600">Thời gian: ~{totalDuration} phút</p>
                     </div>
                     <p className="text-xl font-bold text-primary-600">{formatCurrency(totalPrice)}</p>

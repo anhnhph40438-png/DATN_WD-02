@@ -8,3 +8,4 @@ export { default as AdminPromotions } from './AdminPromotions';
 export { default as AdminTransactions } from './AdminTransactions';
 export { default as AdminStatistics } from './AdminStatistics';
 export { default as AdminSettings } from './AdminSettings';
+export { default as AdminWalkInBooking } from './AdminWalkInBooking';

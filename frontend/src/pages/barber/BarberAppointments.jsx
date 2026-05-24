@@ -16,7 +16,10 @@ import {
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { barberService } from '../../services';
+import api from '../../services/api';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import Modal from '../../components/ui/Modal';
+import { ConfirmModal } from '../../components/ui';
 
 const BarberAppointments = () => {
   const [appointments, setAppointments] = useState([]);
@@ -27,6 +30,16 @@ const BarberAppointments = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(null);
+
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
+  const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -149,6 +162,55 @@ const BarberAppointments = () => {
     setSelectedAppointment(appointment);
     setRejectReason('');
     setShowRejectModal(true);
+  };
+
+  const handleBarberReschedule = async () => {
+    if (!rescheduleDate || !rescheduleTime) {
+      toast.error('Vui lòng chọn ngày và giờ mới');
+      return;
+    }
+    setRescheduleLoading(true);
+    try {
+      await api.put(`/appointments/${rescheduleTarget._id}/reschedule`, {
+        date: rescheduleDate,
+        startTime: rescheduleTime,
+        reason: rescheduleReason,
+      });
+      toast.success('Đã gửi yêu cầu đổi lịch cho khách hàng!');
+      setRescheduleModalOpen(false);
+      fetchAppointments();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Không thể gửi yêu cầu');
+    } finally {
+      setRescheduleLoading(false);
+    }
+  };
+
+  const handleConfirmAction = async () => {
+    setConfirmLoading(true);
+    try {
+      const { type, appointmentId } = confirmAction;
+      if (type === 'confirm') await api.patch(`/appointments/${appointmentId}/confirm`);
+      else if (type === 'reject') await api.patch(`/appointments/${appointmentId}/reject`);
+      else if (type === 'start') await api.patch(`/appointments/${appointmentId}/start`);
+      else if (type === 'complete') await api.patch(`/appointments/${appointmentId}/complete`);
+      else if (type === 'cancel') await api.patch(`/appointments/${appointmentId}/cancel`);
+      toast.success('Thao tác thành công!');
+      setConfirmAction(null);
+      fetchAppointments();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
+
+  const openRescheduleModal = (apt) => {
+    setRescheduleTarget(apt);
+    setRescheduleDate('');
+    setRescheduleTime('');
+    setRescheduleReason('');
+    setRescheduleModalOpen(true);
   };
 
   const statusOptions = [
@@ -346,11 +408,24 @@ const BarberAppointments = () => {
                         {getStatusBadge(appointment.status)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1 flex-wrap">
+                          {appointment.rescheduleRequest?.status === 'pending' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                              Chờ khách xác nhận
+                            </span>
+                          )}
+                          {['pending', 'confirmed'].includes(appointment.status) && appointment.rescheduleRequest?.status !== 'pending' && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openRescheduleModal(appointment); }}
+                              className="px-3 py-1.5 text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100"
+                            >
+                              Đề xuất đổi lịch
+                            </button>
+                          )}
                           {appointment.status === 'pending' && (
                             <>
                               <button
-                                onClick={(e) => { e.stopPropagation(); handleStatusChange(appointment._id, 'confirmed'); }}
+                                onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'confirm', appointmentId: appointment._id, title: 'Xác nhận lịch hẹn', message: 'Bạn có chắc chắn muốn xác nhận lịch hẹn này?', variant: 'info', confirmText: 'Xác nhận' }); }}
                                 disabled={actionLoading === appointment._id}
                                 className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                                 title="Xác nhận"
@@ -358,7 +433,7 @@ const BarberAppointments = () => {
                                 <FiCheck className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={(e) => { e.stopPropagation(); openRejectModal(appointment); }}
+                                onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'reject', appointmentId: appointment._id, title: 'Từ chối lịch hẹn', message: 'Bạn có chắc chắn muốn từ chối lịch hẹn này?', variant: 'danger', confirmText: 'Từ chối' }); }}
                                 disabled={actionLoading === appointment._id}
                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Từ chối"
@@ -369,7 +444,7 @@ const BarberAppointments = () => {
                           )}
                           {appointment.status === 'confirmed' && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleStatusChange(appointment._id, 'in-progress'); }}
+                              onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'start', appointmentId: appointment._id, title: 'Bắt đầu dịch vụ', message: 'Bạn có chắc chắn muốn bắt đầu dịch vụ cho lịch hẹn này?', variant: 'info', confirmText: 'Bắt đầu' }); }}
                               disabled={actionLoading === appointment._id}
                               className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                               title="Bắt đầu"
@@ -379,7 +454,7 @@ const BarberAppointments = () => {
                           )}
                           {appointment.status === 'in-progress' && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleStatusChange(appointment._id, 'completed'); }}
+                              onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'complete', appointmentId: appointment._id, title: 'Hoàn thành dịch vụ', message: 'Bạn có chắc chắn muốn đánh dấu hoàn thành dịch vụ này?', variant: 'info', confirmText: 'Hoàn thành' }); }}
                               disabled={actionLoading === appointment._id}
                               className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                               title="Hoàn thành"
@@ -614,37 +689,37 @@ const BarberAppointments = () => {
                 {selectedAppointment.status === 'pending' && (
                   <>
                     <button
-                      onClick={() => openRejectModal(selectedAppointment)}
+                      onClick={() => setConfirmAction({ type: 'reject', appointmentId: selectedAppointment._id, title: 'Từ chối lịch hẹn', message: 'Bạn có chắc chắn muốn từ chối lịch hẹn này?', variant: 'danger', confirmText: 'Từ chối' })}
                       disabled={actionLoading === selectedAppointment._id}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-dark-400"
                     >
                       Từ chối
                     </button>
                     <button
-                      onClick={() => handleStatusChange(selectedAppointment._id, 'confirmed')}
+                      onClick={() => setConfirmAction({ type: 'confirm', appointmentId: selectedAppointment._id, title: 'Xác nhận lịch hẹn', message: 'Bạn có chắc chắn muốn xác nhận lịch hẹn này?', variant: 'info', confirmText: 'Xác nhận' })}
                       disabled={actionLoading === selectedAppointment._id}
                       className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-dark-400"
                     >
-                      {actionLoading === selectedAppointment._id ? 'Đang xử lý...' : 'Xác nhận'}
+                      Xác nhận
                     </button>
                   </>
                 )}
                 {selectedAppointment.status === 'confirmed' && (
                   <button
-                    onClick={() => handleStatusChange(selectedAppointment._id, 'in-progress')}
+                    onClick={() => setConfirmAction({ type: 'start', appointmentId: selectedAppointment._id, title: 'Bắt đầu dịch vụ', message: 'Bạn có chắc chắn muốn bắt đầu dịch vụ cho lịch hẹn này?', variant: 'info', confirmText: 'Bắt đầu' })}
                     disabled={actionLoading === selectedAppointment._id}
                     className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:bg-dark-400"
                   >
-                    {actionLoading === selectedAppointment._id ? 'Đang xử lý...' : 'Bắt đầu dịch vụ'}
+                    Bắt đầu dịch vụ
                   </button>
                 )}
                 {selectedAppointment.status === 'in-progress' && (
                   <button
-                    onClick={() => handleStatusChange(selectedAppointment._id, 'completed')}
+                    onClick={() => setConfirmAction({ type: 'complete', appointmentId: selectedAppointment._id, title: 'Hoàn thành dịch vụ', message: 'Bạn có chắc chắn muốn đánh dấu hoàn thành dịch vụ này?', variant: 'info', confirmText: 'Hoàn thành' })}
                     disabled={actionLoading === selectedAppointment._id}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-dark-400"
                   >
-                    {actionLoading === selectedAppointment._id ? 'Đang xử lý...' : 'Hoàn thành'}
+                    Hoàn thành
                   </button>
                 )}
               </div>
@@ -652,6 +727,52 @@ const BarberAppointments = () => {
           </div>
         </div>
       )}
+
+      {/* Reschedule Modal */}
+      <Modal isOpen={rescheduleModalOpen} onClose={() => setRescheduleModalOpen(false)} title="Đề xuất đổi lịch">
+        <div className="space-y-4">
+          {rescheduleTarget && (
+            <div className="p-3 bg-gray-50 rounded-lg text-sm">
+              <p className="text-gray-600">Lịch hiện tại: {new Date(rescheduleTarget.date).toLocaleDateString('vi-VN')} lúc {rescheduleTarget.startTime}</p>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ngày mới</label>
+            <input type="date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Giờ mới</label>
+            <input type="time" value={rescheduleTime} onChange={(e) => setRescheduleTime(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Lý do đổi lịch</label>
+            <textarea value={rescheduleReason} onChange={(e) => setRescheduleReason(e.target.value)}
+              rows={3} placeholder="Nhập lý do đổi lịch..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500" />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button onClick={() => setRescheduleModalOpen(false)} className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Hủy</button>
+            <button onClick={handleBarberReschedule} disabled={rescheduleLoading} className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 disabled:opacity-50">
+              {rescheduleLoading ? 'Đang xử lý...' : 'Gửi yêu cầu'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Confirm Action Modal */}
+      <ConfirmModal
+        isOpen={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={handleConfirmAction}
+        title={confirmAction?.title || ''}
+        message={confirmAction?.message || ''}
+        variant={confirmAction?.variant || 'info'}
+        confirmText={confirmAction?.confirmText || 'Xác nhận'}
+        loading={confirmLoading}
+      />
 
       {/* Reject Modal */}
       {showRejectModal && selectedAppointment && (

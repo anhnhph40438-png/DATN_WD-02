@@ -22,7 +22,6 @@ const AdminUsers = () => {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -35,7 +34,7 @@ const AdminUsers = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, search, roleFilter, statusFilter]);
+  }, [currentPage, search, roleFilter]);
 
   const fetchUsers = async () => {
     try {
@@ -46,7 +45,6 @@ const AdminUsers = () => {
         limit: itemsPerPage,
         search: search || undefined,
         role: roleFilter !== 'all' ? roleFilter : undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
       };
       const response = await adminService.getAllUsers(params);
       const data = response.data || response;
@@ -77,23 +75,6 @@ const AdminUsers = () => {
     setCurrentPage(1);
   };
 
-  const handleToggleStatus = async (user) => {
-    try {
-      setActionLoading(true);
-      await adminService.toggleUserStatus(user._id);
-      setUsers(users.map(u =>
-        u._id === user._id
-          ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' }
-          : u
-      ));
-    } catch (err) {
-      console.error('Error toggling user status:', err);
-      alert('Không thể thay đổi trạng thái người dùng');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
     try {
@@ -113,16 +94,6 @@ const AdminUsers = () => {
   const handleViewUser = (user) => {
     setSelectedUser(user);
     setShowViewModal(true);
-  };
-
-  const getStatusBadge = (status) => {
-    return status === 'active'
-      ? 'bg-green-100 text-green-700'
-      : 'bg-dark-100 text-dark-600';
-  };
-
-  const getStatusText = (status) => {
-    return status === 'active' ? 'Hoạt động' : 'Vô hiệu hóa';
   };
 
   const getRoleBadge = (role) => {
@@ -183,17 +154,6 @@ const AdminUsers = () => {
             </select>
           </div>
 
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              className="px-4 py-2 border border-dark-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="active">Hoạt động</option>
-              <option value="inactive">Vô hiệu hóa</option>
-            </select>
-          </div>
         </div>
       </div>
 
@@ -219,9 +179,6 @@ const AdminUsers = () => {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-dark-600 uppercase tracking-wider">
                       Vai trò
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-600 uppercase tracking-wider">
-                      Trạng thái
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-dark-600 uppercase tracking-wider">
                       Ngày tạo
@@ -265,11 +222,6 @@ const AdminUsers = () => {
                           {getRoleText(user.role)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(user.status)}`}>
-                          {getStatusText(user.status)}
-                        </span>
-                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-500">
                         {formatDate(user.createdAt, { year: 'numeric', month: '2-digit', day: '2-digit' })}
                       </td>
@@ -295,7 +247,7 @@ const AdminUsers = () => {
                   ))}
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="px-6 py-12 text-center text-dark-500">
+                      <td colSpan="6" className="px-6 py-12 text-center text-dark-500">
                         Không tìm thấy người dùng nào
                       </td>
                     </tr>
@@ -376,9 +328,6 @@ const AdminUsers = () => {
                 </div>
               )}
               <h4 className="text-xl font-semibold text-dark-900">{selectedUser.name}</h4>
-              <span className={`mt-2 inline-flex px-3 py-1 text-sm font-medium rounded-full ${getStatusBadge(selectedUser.status)}`}>
-                {getStatusText(selectedUser.status)}
-              </span>
             </div>
 
             <div className="space-y-4">
