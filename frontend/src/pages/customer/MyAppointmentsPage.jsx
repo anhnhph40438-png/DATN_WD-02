@@ -83,22 +83,25 @@ const MyAppointmentsPage = () => {
     return <span className={`px-2 py-0.5 rounded text-xs font-medium ${color}`}>{text}</span>;
   };
 
-  const filterAppointments = () => {
-    const now = new Date();
-    return appointments.filter((apt) => {
-      const aptDate = new Date(apt.date);
-      switch (activeTab) {
-        case 'upcoming':
-          return ['pending', 'confirmed'].includes(apt.status) && aptDate >= now;
-        case 'completed':
-          return apt.status === 'completed';
-        case 'cancelled':
-          return ['cancelled', 'noshow'].includes(apt.status);
-        default:
-          return true;
-      }
-    });
-  };
+const filterAppointments = () => {
+  const now = new Date();
+  // Lấy đầu ngày hôm nay (00:00:00) để so sánh
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  return appointments.filter((apt) => {
+    const aptDate = new Date(apt.date);
+    switch (activeTab) {
+      case 'upcoming':
+        return ['pending', 'confirmed'].includes(apt.status) && aptDate >= today;
+      case 'completed':
+        return apt.status === 'completed';
+      case 'cancelled':
+        return ['cancelled', 'noshow'].includes(apt.status);
+      default:
+        return true;
+    }
+  });
+};
 
   const handleCancelClick = (appointment) => {
     setSelectedAppointment(appointment);
