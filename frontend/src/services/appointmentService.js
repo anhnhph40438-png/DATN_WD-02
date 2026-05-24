@@ -33,6 +33,24 @@ const appointmentService = {
     });
     return response.data;
   },
+
+  // Reschedule an appointment (customer)
+  rescheduleAppointment: async (id, data) => {
+    const response = await api.put(`/appointments/${id}/reschedule`, data);
+    return response.data;
+  },
+
+  // Respond to a reschedule request (customer)
+  respondToReschedule: async (id, action) => {
+    const response = await api.patch(`/appointments/${id}/reschedule-respond`, { action });
+    return response.data;
+  },
+
+  // Get reschedule confirm by token (public)
+  getRescheduleByToken: async (token, action) => {
+    const response = await api.get(`/appointments/reschedule-confirm/${token}?action=${action}`);
+    return response.data;
+  },
 };
 
 export default appointmentService;

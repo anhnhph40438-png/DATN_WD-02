@@ -132,6 +132,24 @@ const adminService = {
     return response.data;
   },
 
+  // Reschedule an appointment (admin)
+  rescheduleAppointment: async (id, data) => {
+    const response = await api.put(`/appointments/${id}/reschedule`, data);
+    return response.data;
+  },
+
+  // Create walk-in booking
+  createWalkInBooking: async (data) => {
+    const response = await api.post('/appointments/walk-in', data);
+    return response.data;
+  },
+
+  // Search users by phone or name
+  searchUsers: async (query) => {
+    const response = await api.get('/users', { params: { search: query, limit: 10 } });
+    return response.data;
+  },
+
   // ============ Promotions Management ============
   getAllPromotions: async (params = {}) => {
     const response = await api.get('/promotions', { params });

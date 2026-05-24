@@ -27,13 +27,13 @@ import {
   ProfilePage,
   PaymentPage,
   PaymentResultPage,
+  RescheduleConfirmPage,
 } from './pages/customer';
 
 // Barber Pages
 import {
   BarberDashboard,
   BarberAppointments,
-  BarberSchedule,
   BarberStatistics,
   BarberProfile,
 } from './pages/barber';
@@ -49,6 +49,7 @@ import {
   AdminTransactions,
   AdminStatistics,
   AdminSettings,
+  AdminWalkInBooking,
 } from './pages/admin';
 
 // Other Pages
@@ -107,6 +108,7 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+          <Route path="/reschedule-confirm/:token" element={<RescheduleConfirmPage />} />
 
           {/* Customer protected routes */}
           <Route element={<ProtectedRoute allowedRoles={['customer']} />}>
@@ -124,7 +126,6 @@ function App() {
             <Route element={<BarberLayout />}>
               <Route path="/barber" element={<BarberDashboard />} />
               <Route path="/barber/appointments" element={<BarberAppointments />} />
-              <Route path="/barber/schedule" element={<BarberSchedule />} />
               <Route path="/barber/statistics" element={<BarberStatistics />} />
               <Route path="/barber/profile" element={<BarberProfile />} />
             </Route>
@@ -142,6 +143,7 @@ function App() {
               <Route path="/admin/transactions" element={<AdminTransactions />} />
               <Route path="/admin/statistics" element={<AdminStatistics />} />
               <Route path="/admin/settings" element={<AdminSettings />} />
+              <Route path="/admin/walk-in-booking" element={<AdminWalkInBooking />} />
             </Route>
           </Route>
 
