@@ -41,15 +41,11 @@ const Sidebar = ({ role, isOpen, onClose }) => {
   const barberLinks = [
     { to: '/barber', icon: FiHome, label: 'Dashboard', end: true },
     { to: '/barber/appointments', icon: FiCalendar, label: 'Lịch hẹn' },
-    { to: '/barber/schedule', icon: FiClock, label: 'Lịch làm việc' },
     { to: '/barber/statistics', icon: FiBarChart2, label: 'Thống kê' },
     { to: '/barber/profile', icon: FiUser, label: 'Hồ sơ' },
   ];
 
-  // Both admin and barber get all links combined
-  const links = role === 'admin'
-    ? [...adminLinks]
-    : [...barberLinks];
+  const links = role === 'admin' ? adminLinks : barberLinks;
   const roleLabel = role === 'admin' ? 'Quản trị viên' : 'Thợ cắt tóc';
 
   const NavItem = ({ to, icon: Icon, label, end }) => (
