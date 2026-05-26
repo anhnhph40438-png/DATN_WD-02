@@ -47,11 +47,14 @@ const BarberDashboard = () => {
       const statsData = statsResponse.data || {};
       if (statsData) {
         setStats({
-          todayAppointments: statsData.todayAppointments || 0,
-          weekAppointments: statsData.weekAppointments || 0,
-          monthCustomers: statsData.monthCustomers || 0,
-          monthRevenue: statsData.monthRevenue || 0,
-        });
+            todayAppointments: Number(statsData.todayAppointments) || 0,
+            weekAppointments: Number(statsData.weekAppointments) || 0,
+            monthCustomers: Number(statsData.monthCustomers) || 0,
+            monthRevenue:
+              typeof statsData.monthRevenue === 'number'
+                ? statsData.monthRevenue
+                : Number(statsData.monthRevenue?.total || 0),
+                  });
       }
 
       // Fetch today's appointments
@@ -124,6 +127,7 @@ const BarberDashboard = () => {
       </div>
     );
   };
+  console.log('stats:', stats);
 
   const statsCards = [
     {
@@ -175,6 +179,7 @@ const BarberDashboard = () => {
       </div>
     );
   }
+  console.log('todayAppointments:', todayAppointments);
 
   return (
     <div>
@@ -190,7 +195,11 @@ const BarberDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-dark-500 mb-1">{stat.label}</p>
-                <p className="text-2xl font-bold text-dark-900">{stat.value}</p>
+                <p className="text-2xl font-bold text-dark-900">
+                  {typeof stat.value === 'object'
+                    ? JSON.stringify(stat.value)
+                    : stat.value}
+                </p>
               </div>
               <div className={`w-12 h-12 ${stat.bgLight} rounded-lg flex items-center justify-center`}>
                 <stat.icon className={`w-6 h-6 ${stat.textColor}`} />
@@ -234,8 +243,31 @@ const BarberDashboard = () => {
                           <span>{appointment.startTime} - {appointment.endTime}</span>
                           <span className="text-dark-200">|</span>
                           <span>
-                            {appointment.services?.map(s => typeof s === 'string' ? s : s.name).join(', ')}
-                          </span>
+  {appointment.services
+    ?.map((s) => {
+      // nếu service là string
+      if (typeof s === 'string') return s;
+
+      // nếu service là object
+      if (typeof s === 'object' && s !== null) {
+
+        // name là string
+        if (typeof s.name === 'string') {
+          return s.name;
+        }
+
+        // name là object
+        if (typeof s.name === 'object' && s.name !== null) {
+          return s.name.vi || s.name.en || 'Dịch vụ';
+        }
+
+        return 'Dịch vụ';
+      }
+
+      return 'Dịch vụ';
+    })
+    .join(', ')}
+</span>
                         </div>
                       </div>
                     </div>
